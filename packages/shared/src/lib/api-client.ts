@@ -1,0 +1,16 @@
+import axios, { type InternalAxiosRequestConfig } from "axios";
+
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+
+export const apiClient = axios.create({
+  baseURL,
+});
+
+apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = localStorage.getItem("gestfacturation_token");
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});

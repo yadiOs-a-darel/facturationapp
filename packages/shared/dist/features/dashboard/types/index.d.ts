@@ -1,0 +1,1 @@
+export type { DashboardResponse, DashboardKpis } from "../../reports/types";

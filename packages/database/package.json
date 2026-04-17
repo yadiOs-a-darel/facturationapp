@@ -1,0 +1,23 @@
+{
+  "name": "@gestfacturation/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "drizzle:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "build": "echo \"no build for database package\"",
+    "lint": "echo \"no lint for database package\""
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "drizzle-orm": "^0.45.1",
+    "mysql2": "^3.18.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.9",
+    "prisma": "^6.0.0",
+    "typescript": "^5.7.0"
+  }
+}
