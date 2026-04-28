@@ -112,7 +112,7 @@ export function AppSidebar({
       <SidebarFooter className="pb-6 group-data-[collapsible=icon]:items-center">
         <SidebarMenu className="gap-3 group-data-[collapsible=icon]:items-center">
           <SidebarMenuItem>
-            <div className="flex flex-row items-center gap-2 px-2">
+            <div className="flex flex-col items-center gap-2 px-2">
               <LanguageSwitcher />
               <ThemeSwitcher />
             </div>

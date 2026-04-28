@@ -1,136 +1,134 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from "react";
-import { useCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer, } from "../hooks/use-customers";
+import { useCustomers, useCreateCustomer, useDeleteCustomer, useUpdateCustomer, } from "../hooks/use-customers";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Card, CardContent } from "../../../components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, } from "../../../components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "../../../components/ui/dropdown-menu";
+import { Badge } from "../../../components/ui/badge";
+import { DataTable, RowActions, } from "../../../components/ui/data-table";
+import { EmptyState } from "../../../components/ui/empty-state";
+import { PageHeader } from "../../../components/layout/page-header";
+import { Search, Plus, Trash2, Edit, Filter, Users } from "lucide-react";
+import { useI18n } from "../../../lib/i18n";
+import { usePageTitle } from "../../../hooks/use-page-title";
 export function CustomersPage() {
-    const { data, isLoading, error } = useCustomers();
+    usePageTitle("Clients");
+    const { data: customers, isLoading } = useCustomers();
     const createCustomer = useCreateCustomer();
-    const [editingId, setEditingId] = useState(null);
-    const updateCustomer = useUpdateCustomer(editingId ?? "");
+    const updateCustomer = useUpdateCustomer;
     const deleteCustomer = useDeleteCustomer();
-    const [code, setCode] = useState("");
-    const [denomination, setDenomination] = useState("");
-    const [type, setType] = useState("RETAIL");
-    const [phone, setPhone] = useState("");
-    const [city, setCity] = useState("");
-    const resetForm = () => {
-        setCode("");
-        setDenomination("");
-        setType("RETAIL");
-        setPhone('');
-        setCity('');
-        setEditingId(null);
-    };
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const payload = {
-            code,
-            denomination,
-            type,
-            country: "Algeria",
-            phone: phone || undefined,
-            city: city || undefined,
-        };
-        if (editingId) {
-            updateCustomer.mutate(payload, {
-                onSuccess: resetForm,
+    const { t } = useI18n();
+    const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState("");
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [editingCustomer, setEditingCustomer] = useState(null);
+    const [form, setForm] = useState({
+        code: "",
+        denomination: "",
+        email: "",
+        phone: "",
+        type: "RETAIL",
+        country: "DZ",
+    });
+    const filtered = customers?.data.filter((c) => {
+        const matchesSearch = !search ||
+            c.denomination.toLowerCase().includes(search.toLowerCase()) ||
+            c.code.toLowerCase().includes(search.toLowerCase());
+        const matchesType = !typeFilter || c.type === typeFilter;
+        return matchesSearch && matchesType;
+    }) ?? [];
+    const handleSubmit = () => {
+        if (editingCustomer) {
+            updateCustomer(editingCustomer.id).mutate(form, {
+                onSuccess: () => {
+                    setDialogOpen(false);
+                    setEditingCustomer(null);
+                    setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
+                },
             });
         }
         else {
-            createCustomer.mutate(payload, {
-                onSuccess: resetForm,
+            createCustomer.mutate(form, {
+                onSuccess: () => {
+                    setDialogOpen(false);
+                    setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
+                },
             });
         }
     };
-    const handleEdit = (id) => {
-        if (!data)
-            return;
-        const c = data.data.find((x) => x.id === id);
-        if (!c)
-            return;
-        setEditingId(id);
-        setCode(c.code);
-        setDenomination(c.denomination);
-        setType(c.type);
-        setPhone(c.phone || '');
-        setCity(c.city || '');
+    const handleEdit = (customer) => {
+        setEditingCustomer(customer);
+        setForm({
+            code: customer.code,
+            denomination: customer.denomination,
+            email: customer.email || "",
+            phone: customer.phone || "",
+            type: customer.type,
+            country: customer.country,
+        });
+        setDialogOpen(true);
     };
-    const handleDelete = (id) => {
-        if (!window.confirm('Supprimer ce client ?'))
-            return;
-        deleteCustomer.mutate(id);
+    const handleClose = () => {
+        setDialogOpen(false);
+        setEditingCustomer(null);
+        setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
     };
-    return (_jsxs("div", { style: { padding: 24 }, children: [_jsx("h1", { style: { fontSize: 22, marginBottom: 8 }, children: "Clients" }), _jsxs("form", { onSubmit: handleSubmit, style: {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-                    gap: 12,
-                    alignItems: 'end',
-                    background: '#ffffff',
-                    padding: 16,
-                    borderRadius: 12,
-                    boxShadow: '0 10px 25px rgba(15,23,42,0.06)',
-                    marginBottom: 16,
-                }, children: [_jsxs("div", { children: [_jsx("label", { style: { fontSize: 12, color: '#4b5563' }, children: "Code" }), _jsx("input", { value: code, onChange: (e) => setCode(e.target.value), required: true, style: {
-                                    marginTop: 4,
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid #d1d5db',
-                                    fontSize: 14,
-                                } })] }), _jsxs("div", { children: [_jsx("label", { style: { fontSize: 12, color: '#4b5563' }, children: "D\u00E9nomination" }), _jsx("input", { value: denomination, onChange: (e) => setDenomination(e.target.value), required: true, style: {
-                                    marginTop: 4,
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid #d1d5db',
-                                    fontSize: 14,
-                                } })] }), _jsxs("div", { children: [_jsx("label", { style: { fontSize: 12, color: '#4b5563' }, children: "Type" }), _jsxs("select", { value: type, onChange: (e) => setType(e.target.value), style: {
-                                    marginTop: 4,
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid #d1d5db',
-                                    fontSize: 14,
-                                }, children: [_jsx("option", { value: "RETAIL", children: "D\u00E9tail" }), _jsx("option", { value: "WHOLESALE", children: "Gros" }), _jsx("option", { value: "ORGANIZATION", children: "Organisme" }), _jsx("option", { value: "MINISTRY", children: "Minist\u00E8re" }), _jsx("option", { value: "OTHER", children: "Autre" })] })] }), _jsxs("div", { children: [_jsx("label", { style: { fontSize: 12, color: '#4b5563' }, children: "T\u00E9l\u00E9phone" }), _jsx("input", { value: phone, onChange: (e) => setPhone(e.target.value), style: {
-                                    marginTop: 4,
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid #d1d5db',
-                                    fontSize: 14,
-                                } })] }), _jsxs("div", { children: [_jsx("label", { style: { fontSize: 12, color: '#4b5563' }, children: "Ville" }), _jsx("input", { value: city, onChange: (e) => setCity(e.target.value), style: {
-                                    marginTop: 4,
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid #d1d5db',
-                                    fontSize: 14,
-                                } })] }), _jsx("button", { type: "submit", disabled: createCustomer.isPending || updateCustomer.isPending, style: {
-                            gridColumn: 'span 5',
-                            marginTop: 4,
-                            alignSelf: 'stretch',
-                            padding: '10px 16px',
-                            borderRadius: 9999,
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            color: '#ffffff',
-                            background: editingId ? '#f59e0b' : '#2563eb',
-                            opacity: createCustomer.isPending || updateCustomer.isPending ? 0.7 : 1,
-                        }, children: editingId ? 'Mettre à jour le client' : 'Ajouter le client' })] }), isLoading && _jsx("p", { style: { fontSize: 14 }, children: "Chargement\u2026" }), error && (_jsx("p", { style: { fontSize: 14, color: '#b91c1c' }, children: "Impossible de charger les clients." })), data && (_jsxs("table", { style: { width: '100%', fontSize: 14, marginTop: 12, borderCollapse: 'collapse' }, children: [_jsx("thead", { style: { background: '#f3f4f6' }, children: _jsxs("tr", { children: [_jsx("th", { style: { textAlign: 'left', padding: '8px' }, children: "Code" }), _jsx("th", { style: { textAlign: 'left', padding: '8px' }, children: "D\u00E9nomination" }), _jsx("th", { style: { textAlign: 'left', padding: '8px' }, children: "Type" }), _jsx("th", { style: { textAlign: 'left', padding: '8px' }, children: "T\u00E9l\u00E9phone" }), _jsx("th", { style: { textAlign: 'left', padding: '8px' }, children: "Ville" }), _jsx("th", { style: { textAlign: 'right', padding: '8px' }, children: "Actions" })] }) }), _jsx("tbody", { children: data.data.map((c) => (_jsxs("tr", { style: { borderBottom: '1px solid #e5e7eb' }, children: [_jsx("td", { style: { padding: '8px' }, children: c.code }), _jsx("td", { style: { padding: '8px' }, children: c.denomination }), _jsx("td", { style: { padding: '8px' }, children: c.type }), _jsx("td", { style: { padding: '8px' }, children: c.phone ?? '—' }), _jsx("td", { style: { padding: '8px' }, children: c.city ?? '—' }), _jsxs("td", { style: { padding: '8px', textAlign: 'right' }, children: [_jsx("button", { onClick: () => handleEdit(c.id), style: {
-                                                marginRight: 8,
-                                                padding: '4px 8px',
-                                                borderRadius: 8,
-                                                border: '1px solid #d1d5db',
-                                                background: '#ffffff',
-                                                fontSize: 12,
-                                                cursor: 'pointer',
-                                            }, children: "Modifier" }), _jsx("button", { onClick: () => handleDelete(c.id), style: {
-                                                padding: '4px 8px',
-                                                borderRadius: 8,
-                                                border: '1px solid #fecaca',
-                                                background: '#fee2e2',
-                                                color: '#b91c1c',
-                                                fontSize: 12,
-                                                cursor: 'pointer',
-                                            }, children: "Supprimer" })] })] }, c.id))) })] }))] }));
+    const getTypeBadgeVariant = (type) => {
+        switch (type) {
+            case "RETAIL": return "default";
+            case "WHOLESALE": return "secondary";
+            default: return "outline";
+        }
+    };
+    const getTypeLabel = (type) => {
+        const labels = {
+            RETAIL: t("customers.types.RETAIL"),
+            WHOLESALE: t("customers.types.WHOLESALE"),
+        };
+        return labels[type] || type;
+    };
+    const columns = [
+        {
+            key: "code",
+            label: t("customers.code"),
+            sortable: true,
+            render: (value) => _jsx("span", { className: "text-sm", children: value }),
+        },
+        {
+            key: "denomination",
+            label: t("customers.denomination"),
+            sortable: true,
+            render: (value) => _jsx("span", { className: "text-sm font-medium", children: value }),
+        },
+        {
+            key: "type",
+            label: t("customers.type"),
+            sortable: true,
+            render: (value) => (_jsx(Badge, { variant: getTypeBadgeVariant(value), size: "sm", children: getTypeLabel(value) })),
+        },
+        {
+            key: "phone",
+            label: t("common.phone"),
+            sortable: true,
+            render: (value) => (_jsx("span", { className: "text-sm text-muted-foreground", children: value || "-" })),
+        },
+    ];
+    return (_jsxs("div", { className: "space-y-6", children: [_jsx(PageHeader, { title: t("customers.title"), description: `${filtered.length} client${filtered.length > 1 ? "s" : ""}`, action: _jsxs(Button, { onClick: () => setDialogOpen(true), children: [_jsx(Plus, { className: "h-4 w-4 mr-2" }), t("customers.add")] }) }), _jsxs(Card, { children: [_jsx(CardContent, { className: "p-4", children: _jsxs("div", { className: "flex flex-col gap-4 sm:flex-row sm:items-center", children: [_jsxs("div", { className: "relative flex-1 max-w-sm", children: [_jsx(Search, { className: "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" }), _jsx(Input, { value: search, onChange: (e) => setSearch(e.target.value), placeholder: t("common.search"), className: "pl-9" })] }), _jsxs(DropdownMenu, { children: [_jsx(DropdownMenuTrigger, { asChild: true, children: _jsxs(Button, { variant: "outline", size: "sm", children: [_jsx(Filter, { className: "mr-2 h-4 w-4" }), typeFilter ? getTypeLabel(typeFilter) : "Type"] }) }), _jsxs(DropdownMenuContent, { children: [_jsx(DropdownMenuItem, { onClick: () => setTypeFilter(""), children: "Tous les types" }), _jsx(DropdownMenuItem, { onClick: () => setTypeFilter("RETAIL"), children: t("customers.types.RETAIL") }), _jsx(DropdownMenuItem, { onClick: () => setTypeFilter("WHOLESALE"), children: t("customers.types.WHOLESALE") })] })] })] }) }), _jsx(DataTable, { data: filtered, columns: columns, isLoading: isLoading, emptyState: _jsx(EmptyState, { icon: _jsx(Users, { className: "h-8 w-8" }), title: t("customers.empty"), description: "Commencez par ajouter un nouveau client", action: {
+                                label: t("customers.add"),
+                                onClick: () => setDialogOpen(true),
+                            } }), actions: (row) => (_jsx(RowActions, { items: [
+                                {
+                                    label: t("common.edit"),
+                                    icon: _jsx(Edit, { className: "h-4 w-4" }),
+                                    onClick: () => handleEdit(row),
+                                },
+                                {
+                                    label: t("common.delete"),
+                                    icon: _jsx(Trash2, { className: "h-4 w-4" }),
+                                    destructive: true,
+                                    onClick: () => deleteCustomer.mutate(row.id),
+                                },
+                            ] })) })] }), _jsx(Dialog, { open: dialogOpen, onOpenChange: (open) => !open && handleClose(), children: _jsxs(DialogContent, { className: "sm:max-w-lg", children: [_jsx(DialogHeader, { children: _jsx(DialogTitle, { children: editingCustomer ? t("customers.update") : t("customers.add") }) }), _jsxs("div", { className: "space-y-4 py-4", children: [_jsxs("div", { className: "grid grid-cols-2 gap-4", children: [_jsxs("div", { className: "space-y-2", children: [_jsx("label", { className: "text-sm font-medium", children: t("customers.code") }), _jsx(Input, { value: form.code, onChange: (e) => setForm({ ...form, code: e.target.value }) })] }), _jsxs("div", { className: "space-y-2", children: [_jsx("label", { className: "text-sm font-medium", children: t("customers.type") }), _jsxs("select", { className: "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", value: form.type, onChange: (e) => setForm({ ...form, type: e.target.value }), children: [_jsx("option", { value: "RETAIL", children: t("customers.types.RETAIL") }), _jsx("option", { value: "WHOLESALE", children: t("customers.types.WHOLESALE") })] })] })] }), _jsxs("div", { className: "space-y-2", children: [_jsx("label", { className: "text-sm font-medium", children: t("customers.denomination") }), _jsx(Input, { value: form.denomination, onChange: (e) => setForm({ ...form, denomination: e.target.value }) })] }), _jsxs("div", { className: "space-y-2", children: [_jsx("label", { className: "text-sm font-medium", children: "Email" }), _jsx(Input, { value: form.email, onChange: (e) => setForm({ ...form, email: e.target.value }) })] }), _jsxs("div", { className: "space-y-2", children: [_jsx("label", { className: "text-sm font-medium", children: t("common.phone") }), _jsx(Input, { value: form.phone, onChange: (e) => setForm({ ...form, phone: e.target.value }) })] })] }), _jsxs(DialogFooter, { children: [_jsx(Button, { variant: "outline", onClick: handleClose, children: t("common.cancel") }), _jsx(Button, { onClick: handleSubmit, disabled: createCustomer.isPending, children: editingCustomer ? t("common.update") : t("common.create") })] })] }) })] }));
 }

@@ -73,6 +73,8 @@ async function generateInvoiceNumber(tenantId: string) {
       .where(and(eq(schema.numberingConfig.tenantId, tenantId), eq(schema.numberingConfig.documentType, documentType)))
       .limit(1);
 
+    const now = new Date();
+
     if (existing.length === 0) {
       await tx.insert(schema.numberingConfig).values({
         id: randomUUID(),
@@ -81,6 +83,8 @@ async function generateInvoiceNumber(tenantId: string) {
         prefix,
         currentNumber: 1,
         padding,
+        createdAt: now,
+        updatedAt: now,
       });
       currentNumber = 1;
     } else {
@@ -197,6 +201,7 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
 
   try {
     let createdInvoice: any;
+    const now = new Date();
 
     await db.transaction(async (tx) => {
       const invoiceId = randomUUID();
@@ -208,7 +213,7 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         createdById: userId ?? null,
         number,
         type: payload.type,
-        issueDate: payload.issueDate ? new Date(payload.issueDate) : new Date(),
+        issueDate: payload.issueDate ? new Date(payload.issueDate) : now,
         dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
         status: 'DRAFT',
         subtotalHT: String(subtotalHT.toFixed(2)),
@@ -219,6 +224,8 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         paidAmount: '0',
         notes: payload.notes ?? null,
         terms: payload.terms ?? null,
+        createdAt: now,
+        updatedAt: now,
       });
 
       for (const [index, item] of payload.items.entries()) {

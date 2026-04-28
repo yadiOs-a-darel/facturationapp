@@ -87,10 +87,6 @@ async function registerTenant(req, res) {
             id: tenantId,
             name: tenantName,
             slug: tenantSlug,
-            plan: 'BASIC',
-            planStatus: 'TRIAL',
-            maxUsers: 3,
-            maxProducts: 500,
             createdAt: new Date(),
             updatedAt: new Date(),
         });

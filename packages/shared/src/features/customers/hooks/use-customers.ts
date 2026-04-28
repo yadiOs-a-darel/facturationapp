@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { customersKeys } from "../../../lib/query";
 import {
   fetchCustomers,
@@ -38,6 +39,12 @@ export function useCreateCustomer() {
     mutationFn: (payload: CustomerUpsertPayload) => createCustomer(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: customersKeys.all });
+      toast.success("Client créé avec succès");
+    },
+    onError: (error) => {
+      toast.error("Erreur lors de la création du client", {
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
     },
   });
 }
@@ -49,6 +56,12 @@ export function useUpdateCustomer(id: string) {
     onSuccess: (updatedCustomer) => {
       queryClient.invalidateQueries({ queryKey: customersKeys.all });
       queryClient.setQueryData(customerKeys.detail(id), updatedCustomer);
+      toast.success("Client mis à jour avec succès");
+    },
+    onError: (error) => {
+      toast.error("Erreur lors de la mise à jour du client", {
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
     },
   });
 }
@@ -59,6 +72,12 @@ export function useDeleteCustomer() {
     mutationFn: (id: string) => deleteCustomer(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: customersKeys.all });
+      toast.success("Client supprimé avec succès");
+    },
+    onError: (error) => {
+      toast.error("Erreur lors de la suppression du client", {
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
     },
   });
 }

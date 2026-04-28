@@ -1,20 +1,24 @@
 import { createRoute, createRouter, redirect } from "@tanstack/react-router";
-import { rootRoute } from "./layouts/root-layout";
-import { protectedLayout } from "./layouts/protected-layout";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterTenantPage } from "../features/auth/pages/RegisterTenantPage";
+import { getSession } from "../features/auth/api/client";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { CustomersPage } from "../features/customers/pages/CustomersPage";
 import { ProductsPage } from "../features/products/pages/ProductsPage";
 import { InvoicesPage } from "../features/invoices/pages/InvoicesPage";
 import { StockPage } from "../features/stock/pages/StockPage";
+import { protectedLayout } from "./layouts/protected-layout";
+import { rootRoute } from "./layouts/root-layout";
 const loginRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/auth/login",
     component: LoginPage,
+    validateSearch: (search) => ({
+        redirect: search.redirect || undefined,
+    }),
     beforeLoad: async () => {
-        const token = localStorage.getItem("gestfacturation_token");
-        if (token) {
+        const result = await getSession();
+        if (result.data?.user) {
             throw redirect({ to: "/" });
         }
     },
@@ -23,6 +27,12 @@ const registerTenantRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/auth/register-tenant",
     component: RegisterTenantPage,
+    beforeLoad: async () => {
+        const result = await getSession();
+        if (result.data?.user) {
+            throw redirect({ to: "/" });
+        }
+    },
 });
 const indexRoute = createRoute({
     getParentRoute: () => protectedLayout,
@@ -34,15 +44,15 @@ const customersRoute = createRoute({
     path: "/customers",
     component: CustomersPage,
 });
-const productsRoute = createRoute({
-    getParentRoute: () => protectedLayout,
-    path: "/products",
-    component: ProductsPage,
-});
 const invoicesRoute = createRoute({
     getParentRoute: () => protectedLayout,
     path: "/invoices",
     component: InvoicesPage,
+});
+const productsRoute = createRoute({
+    getParentRoute: () => protectedLayout,
+    path: "/products",
+    component: ProductsPage,
 });
 const stockRoute = createRoute({
     getParentRoute: () => protectedLayout,
@@ -55,8 +65,8 @@ const routeTree = rootRoute.addChildren([
     protectedLayout.addChildren([
         indexRoute,
         customersRoute,
-        productsRoute,
         invoicesRoute,
+        productsRoute,
         stockRoute,
     ]),
 ]);

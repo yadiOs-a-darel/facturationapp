@@ -30,7 +30,7 @@ export interface ProductsListResponse {
   };
 }
 
-export type ProductUpsertPayload = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
+export type ProductUpsertPayload = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'barcode' | 'stockMax' | 'stockLocation' | 'image' | 'discountRate'> & Partial<Pick<Product, 'barcode' | 'stockMax' | 'stockLocation' | 'image' | 'discountRate'>>;
 
 export interface ProductsListParams {
   search?: string;

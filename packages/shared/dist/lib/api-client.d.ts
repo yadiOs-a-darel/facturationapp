@@ -1,1 +1,1 @@
-export declare const apiClient: import("axios").AxiosInstance;
+export declare const apiClient: any;

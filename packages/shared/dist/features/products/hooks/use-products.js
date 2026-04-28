@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { productsKeys } from "../../../lib/query";
 import { fetchProducts, fetchProduct, createProduct, updateProduct, deleteProduct, } from "../api/client";
 export const productKeys = {
@@ -28,6 +29,12 @@ export function useCreateProduct() {
         mutationFn: (payload) => createProduct(payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: productsKeys.all });
+            toast.success("Produit créé avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la création du produit", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }
@@ -38,6 +45,12 @@ export function useUpdateProduct(id) {
         onSuccess: (updatedProduct) => {
             queryClient.invalidateQueries({ queryKey: productsKeys.all });
             queryClient.setQueryData(productKeys.detail(id), updatedProduct);
+            toast.success("Produit mis à jour avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la mise à jour du produit", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }
@@ -47,6 +60,12 @@ export function useDeleteProduct() {
         mutationFn: (id) => deleteProduct(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: productsKeys.all });
+            toast.success("Produit supprimé avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la suppression du produit", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }

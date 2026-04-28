@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { and, eq } from 'drizzle-orm';
 
 import { db, schema } from '../../lib/db';
+import type { AuthenticatedRequest } from '../../middleware/auth';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -98,17 +99,23 @@ export async function registerTenant(req: Request, res: Response) {
   const tenantId = randomUUID();
   const adminUserId = randomUUID();
 
+  const now = new Date();
+
   await db.transaction(async (tx) => {
     await tx.insert(schema.tenants).values({
       id: tenantId,
       name: tenantName,
       slug: tenantSlug,
+      primaryColor: '#1976d2',
+      secondaryColor: '#ffffff',
+      fontFamily: 'Inter',
+      country: 'DZ',
       plan: 'BASIC',
       planStatus: 'TRIAL',
       maxUsers: 3,
       maxProducts: 500,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     });
 
     await tx.insert(schema.users).values({
@@ -120,8 +127,8 @@ export async function registerTenant(req: Request, res: Response) {
       lastName,
       role: 'SUPER_ADMIN',
       isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     });
   });
 
@@ -158,4 +165,52 @@ export async function registerTenant(req: Request, res: Response) {
       role: adminUser.role,
     },
   });
+}
+
+export async function getSession(req: AuthenticatedRequest, res: Response) {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  const rows = await db
+    .select({
+      user: schema.users,
+      tenant: schema.tenants,
+    })
+    .from(schema.users)
+    .innerJoin(schema.tenants, eq(schema.users.tenantId, schema.tenants.id))
+    .where(eq(schema.users.id, userId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    return res.status(401).json({ error: 'Utilisateur non trouvé' });
+  }
+
+  const { user, tenant } = row;
+
+  return res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    },
+    tenant: {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      logo: tenant.logo,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
+      fontFamily: tenant.fontFamily,
+    },
+  });
+}
+
+export async function logout(_req: AuthenticatedRequest, res: Response) {
+  return res.json({ success: true });
 }

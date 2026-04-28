@@ -1,1 +1,1 @@
-export declare function DashboardPage(): import("react/jsx-runtime").JSX.Element;
+export declare function DashboardPage(): any;

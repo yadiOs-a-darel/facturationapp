@@ -119,6 +119,8 @@ export async function createCustomerHandler(req: AuthenticatedRequest, res: Resp
 
   const payload = parse.data;
 
+  const now = new Date();
+
   try {
     const id = randomUUID();
     await db.insert(schema.customers).values({
@@ -142,6 +144,8 @@ export async function createCustomerHandler(req: AuthenticatedRequest, res: Resp
       currency: payload.currency ?? 'DZD',
       isActive: payload.isActive ?? true,
       notes: payload.notes ?? null,
+      createdAt: now,
+      updatedAt: now,
     });
 
     const [created] = await db

@@ -16,6 +16,7 @@ export interface AuthUser {
     firstName: string;
     lastName: string;
     tenantId: string;
+    role?: string;
 }
 export interface AuthResponse {
     user: AuthUser;

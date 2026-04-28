@@ -1,100 +1,195 @@
-import { useState, FormEvent } from "react";
-import { registerTenant } from "../api/client";
+import { Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Sparkles, CheckCircle2 } from "lucide-react";
+import { useRegisterTenant } from "../hooks/use-auth";
+
+const registerSchema = z.object({
+  tenantName: z.string().min(1, "Le nom de l'entreprise est requis"),
+  tenantSlug: z
+    .string()
+    .min(1, "Le slug est requis")
+    .regex(/^[a-z0-9-]+$/, "Le slug ne doit contenir que des lettres minuscules, chiffres et tirets"),
+  adminEmail: z.string().email("Email invalide"),
+  adminPassword: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+  firstName: z.string().min(1, "Le prénom est requis"),
+  lastName: z.string().min(1, "Le nom est requis"),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterTenantPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  
-  const [tenantName, setTenantName] = useState("");
-  const [tenantSlug, setTenantSlug] = useState("");
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const { mutate: register, isPending: isLoading, isSuccess } = useRegisterTenant();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    
-    try {
-      await registerTenant({ tenantName, tenantSlug, adminEmail, adminPassword, firstName, lastName });
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || "Échec de l'inscription");
-    } finally {
-      setLoading(false);
+  const {
+    register: registerField,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      tenantName: "",
+      tenantSlug: "",
+      adminEmail: "",
+      adminPassword: "",
+      firstName: "",
+      lastName: "",
+    },
+  });
+
+  // Auto-generate slug from tenant name
+  const tenantName = watch("tenantName");
+  useEffect(() => {
+    if (tenantName) {
+      const slug = tenantName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      setValue("tenantSlug", slug, { shouldValidate: false });
     }
+  }, [tenantName, setValue]);
+
+  const onSubmit = (values: RegisterFormValues) => {
+    register(values);
   };
 
-  if (success) {
+  if (isSuccess) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f4f6" }}>
-        <div style={{ textAlign: "center", background: "#fff", padding: 32, borderRadius: 12 }}>
-          <h2 style={{ fontSize: 20, color: "#059669", marginBottom: 8 }}>Compte créé avec succès!</h2>
-          <p style={{ color: "#6b7280" }}>Vous pouvez maintenant vous <a href="/auth/login" style={{ color: "#2563eb" }}>connecter</a></p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md border-0 shadow-lg">
+          <CardContent className="pt-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle2 className="h-6 w-6 text-success" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Compte créé avec succès !</h2>
+            <p className="text-muted-foreground">
+              Vous allez être redirigé vers votre tableau de bord...
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f4f6", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 500, background: "#fff", padding: 32, borderRadius: 12, boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Créer un compte</h1>
-        
-        {error && (
-          <div style={{ padding: 12, background: "#fee2e2", color: "#b91c1c", borderRadius: 8, marginBottom: 16 }}>
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Nom de l'entreprise</label>
-            <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
-          </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Slug (URL)</label>
-            <input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} required pattern="[a-z0-9-]+" style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
-          </div>
-          
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Prénom</label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Nom</label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-lg border-0 shadow-lg">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+              <span className="text-base font-bold text-primary-foreground">GF</span>
             </div>
           </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Email admin</label>
-            <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
-          </div>
-          
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Mot de passe</label>
-            <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} required minLength={6} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d1d5db" }} />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer", opacity: loading ? 0.7 : 1 }}
-          >
-            {loading ? "Création..." : "Créer le compte"}
-          </button>
-        </form>
-        
-        <div style={{ marginTop: 16, textAlign: "center", fontSize: 14 }}>
-          Déjà un compte? <a href="/auth/login" style={{ color: "#2563eb" }}>Se connecter</a>
-        </div>
-      </div>
+          <CardTitle className="text-2xl">Créer un compte</CardTitle>
+          <CardDescription>
+            Créez votre espace entreprise et commencez à gérer vos factures
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="tenantName">Nom de l'entreprise</Label>
+              <Input
+                id="tenantName"
+                {...registerField("tenantName")}
+                aria-invalid={errors.tenantName ? "true" : "false"}
+              />
+              {errors.tenantName && (
+                <p className="text-sm text-destructive">{errors.tenantName.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tenantSlug">Identifiant URL</Label>
+              <Input
+                id="tenantSlug"
+                {...registerField("tenantSlug")}
+                aria-invalid={errors.tenantSlug ? "true" : "false"}
+              />
+              <p className="text-xs text-muted-foreground">
+                Utilisé pour votre URL personnalisée
+              </p>
+              {errors.tenantSlug && (
+                <p className="text-sm text-destructive">{errors.tenantSlug.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Prénom</Label>
+                <Input
+                  id="firstName"
+                  {...registerField("firstName")}
+                  aria-invalid={errors.firstName ? "true" : "false"}
+                />
+                {errors.firstName && (
+                  <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Nom</Label>
+                <Input
+                  id="lastName"
+                  {...registerField("lastName")}
+                  aria-invalid={errors.lastName ? "true" : "false"}
+                />
+                {errors.lastName && (
+                  <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="adminEmail">Email administrateur</Label>
+              <Input
+                id="adminEmail"
+                type="email"
+                {...registerField("adminEmail")}
+                aria-invalid={errors.adminEmail ? "true" : "false"}
+              />
+              {errors.adminEmail && (
+                <p className="text-sm text-destructive">{errors.adminEmail.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="adminPassword">Mot de passe</Label>
+              <Input
+                id="adminPassword"
+                type="password"
+                {...registerField("adminPassword")}
+                aria-invalid={errors.adminPassword ? "true" : "false"}
+              />
+              {errors.adminPassword && (
+                <p className="text-sm text-destructive">{errors.adminPassword.message}</p>
+              )}
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? "Création en cours..." : "Créer le compte"}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-sm text-muted-foreground text-center">
+            Déjà un compte ?{" "}
+            <Link
+              to="/auth/login"
+              className="font-medium text-primary hover:underline"
+            >
+              Se connecter
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

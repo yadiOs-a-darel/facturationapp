@@ -1,4 +1,5 @@
-import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
+import { QueryClient, type DefaultOptions, QueryCache, MutationCache } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const queryConfig: DefaultOptions = {
   queries: {
@@ -15,13 +16,42 @@ const queryConfig: DefaultOptions = {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   },
+  mutations: {
+    retry: false,
+  },
 };
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: queryConfig,
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        if (query.meta?.errorMessage) {
+          toast.error(query.meta.errorMessage as string);
+        }
+      },
+    }),
+    mutationCache: new MutationCache({
+      onError: (error, _variables, _context, mutation) => {
+        if (mutation.meta?.errorMessage) {
+          toast.error(mutation.meta.errorMessage as string);
+        }
+      },
+    }),
   });
 }
+
+export const QueryKeys = {
+  session: ["session"] as const,
+  invoices: ["invoices"] as const,
+  invoice: (id: string) => ["invoices", id] as const,
+  products: ["products"] as const,
+  product: (id: string) => ["products", id] as const,
+  stock: ["stock"] as const,
+  stockEntry: (id: string) => ["stock", "detail", id] as const,
+  customers: ["customers"] as const,
+  customer: (id: string) => ["customers", id] as const,
+};
 
 export const sessionKeys = {
   all: ['session'] as const,
@@ -29,31 +59,32 @@ export const sessionKeys = {
 
 export const tenantKeys = {
   all: ['tenant'] as const,
+  detail: (id: string) => [...tenantKeys.all, 'detail', id] as const,
 };
 
 export const customersKeys = {
-  all: ["customers"] as const,
-  list: <T>(params?: T) => [...customersKeys.all, "list", params] as const,
-  detail: (id: string) => [...customersKeys.all, "detail", id] as const,
+  all: ['customers'] as const,
+  list: <T>(params?: T) => [...customersKeys.all, 'list', params] as const,
+  detail: (id: string) => [...customersKeys.all, 'detail', id] as const,
 };
 
 export const productsKeys = {
-  all: ["products"] as const,
-  list: <T>(params?: T) => [...productsKeys.all, "list", params] as const,
-  detail: (id: string) => [...productsKeys.all, "detail", id] as const,
+  all: ['products'] as const,
+  list: <T>(params?: T) => [...productsKeys.all, 'list', params] as const,
+  detail: (id: string) => [...productsKeys.all, 'detail', id] as const,
 };
 
 export const invoicesKeys = {
-  all: ["invoices"] as const,
-  list: <T>(params?: T) => [...invoicesKeys.all, "list", params] as const,
-  detail: (id: string) => [...invoicesKeys.all, "detail", id] as const,
+  all: ['invoices'] as const,
+  list: <T>(params?: T) => [...invoicesKeys.all, 'list', params] as const,
+  detail: (id: string) => [...invoicesKeys.all, 'detail', id] as const,
 };
 
 export const stockKeys = {
-  all: ["stock"] as const,
-  list: <T>(params?: T) => [...stockKeys.all, "list", params] as const,
-  alerts: ["stock", "alerts"] as const,
-  detail: (id: string) => [...stockKeys.all, "detail", id] as const,
+  all: ['stock'] as const,
+  list: <T>(params?: T) => [...stockKeys.all, 'list', params] as const,
+  alerts: ['stock', 'alerts'] as const,
+  detail: (id: string) => [...stockKeys.all, 'detail', id] as const,
 };
 
 export const reportsKeys = {
@@ -73,4 +104,3 @@ export const attachmentsKeys = {
   list: (params?: Record<string, unknown>) => [...attachmentsKeys.all, 'list', params] as const,
   detail: (id: string) => [...attachmentsKeys.all, 'detail', id] as const,
 };
-

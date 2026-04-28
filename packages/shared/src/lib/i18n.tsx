@@ -1,0 +1,430 @@
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+
+type Language = "fr" | "en";
+
+interface I18nContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const translations = {
+  fr: {
+    // Navigation
+    "nav.dashboard": "Tableau de bord",
+    "nav.customers": "Clients",
+    "nav.products": "Produits",
+    "nav.invoices": "Factures",
+    "nav.stock": "Stock",
+    "nav.logout": "Déconnexion",
+    "nav.logoutLoading": "Déconnexion...",
+    "nav.closeMenu": "Fermer le menu",
+    "nav.openMenu": "Ouvrir le menu",
+
+    // Dashboard
+    "dashboard.title": "Tableau de bord",
+    "dashboard.welcome": "Bienvenue",
+    "dashboard.revenue": "Chiffre d'affaires",
+    "dashboard.invoices": "Factures",
+    "dashboard.customers": "Clients",
+    "dashboard.products": "Produits",
+    "dashboard.pending": "En attente",
+    "dashboard.paid": "Payées",
+    "dashboard.overdue": "En retard",
+    "dashboard.totalSales": "Ventes totales",
+    "dashboard.totalInvoices": "Total factures",
+    "dashboard.unpaidInvoices": "Factures impayées",
+    "dashboard.stockValue": "Valeur stock",
+    "dashboard.updatedNow": "Mis à jour à l'instant",
+    "dashboard.export": "Exporter",
+
+    // Common
+    "common.loading": "Chargement...",
+    "common.error": "Une erreur est s'est produite",
+    "common.save": "parametres",
+    "common.cancel": "Annuler",
+    "common.delete": "Supprimer",
+    "common.edit": "Modifier",
+    "common.create": "Créer",
+    "common.search": "Rechercher",
+    "common.filter": "Filtrer",
+    "common.export": "Exporter",
+    "common.print": "Imprimer",
+    "common.actions": "Actions",
+    "common.code": "Code",
+    "common.name": "Nom",
+    "common.type": "Type",
+    "common.phone": "Téléphone",
+    "common.city": "Ville",
+    "common.add": "Ajouter",
+    "common.update": "Mettre à jour",
+    "common.confirm": "Confirmer",
+    "common.close": "Fermer",
+    "common.back": "Retour",
+    "common.next": "Suivant",
+    "common.submit": "Soumettre",
+    "common.required": "Requis",
+    "common.optional": "Optionnel",
+    "common.yes": "Oui",
+    "common.no": "Non",
+    "common.success": "Succès",
+    "common.warning": "Attention",
+    "common.info": "Info",
+    "common.sort": "Trier",
+    "common.of": "sur",
+    "common.page": "page",
+    "common.viewAll": "Voir tout",
+    "common.unknown": "Inconnu",
+    "common.dueDate": "Date d'échéance",
+
+    // Language
+    "language.fr": "Français",
+    "language.en": "English",
+    "language.switch": "Changer de langue",
+
+    // Theme
+    "theme.light": "Clair",
+    "theme.dark": "Sombre",
+    "theme.switch": "Changer de thème",
+
+    // Customers
+    "customers.title": "Clients",
+    "customers.add": "Ajouter le client",
+    "customers.update": "Mettre à jour le client",
+    "customers.code": "Code",
+    "customers.denomination": "Dénomination",
+    "customers.type": "Type",
+    "customers.phone": "Téléphone",
+    "customers.city": "Ville",
+    "customers.country": "Pays",
+    "customers.loading": "Chargement des clients...",
+    "customers.error": "Impossible de charger les clients.",
+    "customers.empty": "Aucun client trouvé.",
+    "customers.deleteConfirm": "Supprimer ce client ?",
+    "customers.deleteSuccess": "Client supprimé avec succès",
+    "customers.createSuccess": "Client créé avec succès",
+    "customers.updateSuccess": "Client mis à jour avec succès",
+    "customers.types.RETAIL": "Détail",
+    "customers.types.WHOLESALE": "Gros",
+    "customers.types.ORGANIZATION": "Organisme",
+    "customers.types.MINISTRY": "Ministère",
+    "customers.types.OTHER": "Autre",
+
+    // Products
+    "products.title": "Produits",
+    "products.code": "Code",
+    "products.name": "Nom",
+    "products.description": "Description",
+    "products.sellingPrice": "Prix vente",
+    "products.purchasePrice": "Prix d'achat",
+    "products.stock": "Stock",
+    "products.stockQuantity": "Quantité en stock",
+    "products.minStock": "Stock minimum",
+    "products.category": "Catégorie",
+    "products.unit": "Unité",
+    "products.taxRate": "TVA (%)",
+    "products.loading": "Chargement des produits...",
+    "products.error": "Impossible de charger les produits.",
+    "products.empty": "Aucun produit trouvé.",
+    "products.add": "Ajouter un produit",
+    "products.edit": "Modifier le produit",
+    "products.delete": "Supprimer le produit",
+
+    // Invoices
+    "invoices.title": "Factures",
+    "invoices.number": "Numéro",
+    "invoices.type": "Type",
+    "invoices.date": "Date",
+    "invoices.status": "Statut",
+    "invoices.totalTTC": "Total TTC",
+    "invoices.totalHT": "Total HT",
+    "invoices.totalTVA": "Total TVA",
+    "invoices.customer": "Client",
+    "invoices.loading": "Chargement des factures...",
+    "invoices.error": "Impossible de charger les factures.",
+    "invoices.empty": "Aucune facture trouvée.",
+    "invoices.add": "Nouvelle facture",
+    "invoices.recent": "Factures récentes",
+    "invoices.types.PROFORMA": "Proforma",
+    "invoices.types.FINAL": "Définitive",
+    "invoices.types.CREDIT_NOTE": "Avoir",
+    "invoices.status.DRAFT": "Brouillon",
+    "invoices.status.PENDING": "En attente",
+    "invoices.status.PAID": "Payée",
+    "invoices.status.OVERDUE": "En retard",
+    "invoices.status.CANCELLED": "Annulée",
+
+    // Stock
+    "stock.title": "Stock",
+    "stock.product": "Produit",
+    "stock.quantity": "Quantité",
+    "stock.movement": "Mouvement",
+    "stock.date": "Date",
+    "stock.reason": "Raison",
+    "stock.in": "Entrée",
+    "stock.out": "Sortie",
+    "stock.currentStock": "Stock actuel",
+    "stock.minStockAlert": "Alerte stock minimum",
+    "stock.loading": "Chargement du stock...",
+    "stock.error": "Impossible de charger le stock.",
+    "stock.history": "Historique des mouvements",
+    "stock.adjust": "Ajuster le stock",
+    "stock.lowStockProducts": "Produits en rupture",
+    "stock.movements": "Mouvements",
+    "stock.alerts": "Alertes",
+
+    // Auth
+    "auth.login": "Connexion",
+    "auth.loginTitle": "Connexion à GestFacturation",
+    "auth.email": "Email",
+    "auth.password": "Mot de passe",
+    "auth.rememberMe": "Se souvenir de moi",
+    "auth.forgotPassword": "Mot de passe oublié ?",
+    "auth.signIn": "Se connecter",
+    "auth.register": "S'inscrire",
+    "auth.createAccount": "Créer un compte",
+    "auth.alreadyHaveAccount": "Déjà un compte ?",
+    "auth.noAccount": "Pas de compte ?",
+    "auth.registerTenant": "Inscription entreprise",
+    "auth.companyName": "Nom de l'entreprise",
+    "auth.siret": "Numéro SIRET",
+    "auth.address": "Adresse",
+    "auth.postalCode": "Code postal",
+    "auth.firstName": "Prénom",
+    "auth.lastName": "Nom",
+    "auth.confirmPassword": "Confirmer le mot de passe",
+    "auth.passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+    "auth.invalidCredentials": "Email ou mot de passe incorrect",
+    "auth.loginSuccess": "Connexion réussie",
+    "auth.logoutSuccess": "Déconnexion réussie",
+    "auth.registerSuccess": "Inscription réussie",
+  },
+  en: {
+    // Navigation
+    "nav.dashboard": "Dashboard",
+    "nav.customers": "Customers",
+    "nav.products": "Products",
+    "nav.invoices": "Invoices",
+    "nav.stock": "Stock",
+    "nav.logout": "Logout",
+    "nav.logoutLoading": "Logging out...",
+    "nav.closeMenu": "Close menu",
+    "nav.openMenu": "Open menu",
+
+    // Dashboard
+    "dashboard.title": "Dashboard",
+    "dashboard.welcome": "Welcome",
+    "dashboard.revenue": "Revenue",
+    "dashboard.invoices": "Invoices",
+    "dashboard.customers": "Customers",
+    "dashboard.products": "Products",
+    "dashboard.pending": "Pending",
+    "dashboard.paid": "Paid",
+    "dashboard.overdue": "Overdue",
+    "dashboard.totalSales": "Total Sales",
+    "dashboard.totalInvoices": "Total Invoices",
+    "dashboard.unpaidInvoices": "Unpaid Invoices",
+    "dashboard.stockValue": "Stock Value",
+    "dashboard.updatedNow": "Updated just now",
+    "dashboard.export": "Export",
+
+    // Common
+    "common.loading": "Loading...",
+    "common.error": "An error occurred",
+    "common.save": "Settings",
+    "common.cancel": "Cancel",
+    "common.delete": "Delete",
+    "common.edit": "Edit",
+    "common.create": "Create",
+    "common.search": "Search",
+    "common.filter": "Filter",
+    "common.export": "Export",
+    "common.print": "Print",
+    "common.actions": "Actions",
+    "common.code": "Code",
+    "common.name": "Name",
+    "common.type": "Type",
+    "common.phone": "Phone",
+    "common.city": "City",
+    "common.add": "Add",
+    "common.update": "Update",
+    "common.confirm": "Confirm",
+    "common.close": "Close",
+    "common.back": "Back",
+    "common.next": "Next",
+    "common.submit": "Submit",
+    "common.required": "Required",
+    "common.optional": "Optional",
+    "common.yes": "Yes",
+    "common.no": "No",
+    "common.success": "Success",
+    "common.warning": "Warning",
+    "common.info": "Info",
+    "common.sort": "Sort",
+    "common.of": "of",
+    "common.page": "page",
+    "common.viewAll": "View all",
+    "common.unknown": "Unknown",
+    "common.dueDate": "Due date",
+
+    // Language
+    "language.fr": "Français",
+    "language.en": "English",
+    "language.switch": "Switch language",
+
+    // Theme
+    "theme.light": "Light",
+    "theme.dark": "Dark",
+    "theme.switch": "Switch theme",
+
+    // Customers
+    "customers.title": "Customers",
+    "customers.add": "Add customer",
+    "customers.update": "Update customer",
+    "customers.code": "Code",
+    "customers.denomination": "Name",
+    "customers.type": "Type",
+    "customers.phone": "Phone",
+    "customers.city": "City",
+    "customers.country": "Country",
+    "customers.loading": "Loading customers...",
+    "customers.error": "Unable to load customers.",
+    "customers.empty": "No customers found.",
+    "customers.deleteConfirm": "Delete this customer?",
+    "customers.deleteSuccess": "Customer deleted successfully",
+    "customers.createSuccess": "Customer created successfully",
+    "customers.updateSuccess": "Customer updated successfully",
+    "customers.types.RETAIL": "Retail",
+    "customers.types.WHOLESALE": "Wholesale",
+    "customers.types.ORGANIZATION": "Organization",
+    "customers.types.MINISTRY": "Ministry",
+    "customers.types.OTHER": "Other",
+
+    // Products
+    "products.title": "Products",
+    "products.code": "Code",
+    "products.name": "Name",
+    "products.description": "Description",
+    "products.sellingPrice": "Selling Price",
+    "products.purchasePrice": "Purchase Price",
+    "products.stock": "Stock",
+    "products.stockQuantity": "Stock Quantity",
+    "products.minStock": "Minimum Stock",
+    "products.category": "Category",
+    "products.unit": "Unit",
+    "products.taxRate": "VAT (%)",
+    "products.loading": "Loading products...",
+    "products.error": "Unable to load products.",
+    "products.empty": "No products found.",
+    "products.add": "Add product",
+    "products.edit": "Edit product",
+    "products.delete": "Delete product",
+
+    // Invoices
+    "invoices.title": "Invoices",
+    "invoices.number": "Number",
+    "invoices.type": "Type",
+    "invoices.date": "Date",
+    "invoices.status": "Status",
+    "invoices.totalTTC": "Total (incl. VAT)",
+    "invoices.totalHT": "Total (excl. VAT)",
+    "invoices.totalTVA": "VAT Amount",
+    "invoices.customer": "Customer",
+    "invoices.loading": "Loading invoices...",
+    "invoices.error": "Unable to load invoices.",
+    "invoices.empty": "No invoices found.",
+    "invoices.add": "New invoice",
+    "invoices.recent": "Recent invoices",
+    "invoices.types.PROFORMA": "Proforma",
+    "invoices.types.FINAL": "Final",
+    "invoices.types.CREDIT_NOTE": "Credit Note",
+    "invoices.status.DRAFT": "Draft",
+    "invoices.status.PENDING": "Pending",
+    "invoices.status.PAID": "Paid",
+    "invoices.status.OVERDUE": "Overdue",
+    "invoices.status.CANCELLED": "Cancelled",
+
+    // Stock
+    "stock.title": "Stock",
+    "stock.product": "Product",
+    "stock.quantity": "Quantity",
+    "stock.movement": "Movement",
+    "stock.date": "Date",
+    "stock.reason": "Reason",
+    "stock.in": "In",
+    "stock.out": "Out",
+    "stock.currentStock": "Current Stock",
+    "stock.minStockAlert": "Minimum Stock Alert",
+    "stock.loading": "Loading stock...",
+    "stock.error": "Unable to load stock.",
+    "stock.history": "Movement History",
+    "stock.adjust": "Adjust Stock",
+    "stock.lowStockProducts": "Low Stock Products",
+    "stock.movements": "Movements",
+    "stock.alerts": "Alerts",
+
+    // Auth
+    "auth.login": "Login",
+    "auth.loginTitle": "Login to GestFacturation",
+    "auth.email": "Email",
+    "auth.password": "Password",
+    "auth.rememberMe": "Remember me",
+    "auth.forgotPassword": "Forgot password?",
+    "auth.signIn": "Sign in",
+    "auth.register": "Sign up",
+    "auth.createAccount": "Create account",
+    "auth.alreadyHaveAccount": "Already have an account?",
+    "auth.noAccount": "No account?",
+    "auth.registerTenant": "Company Registration",
+    "auth.companyName": "Company Name",
+    "auth.siret": "SIRET Number",
+    "auth.address": "Address",
+    "auth.postalCode": "Postal Code",
+    "auth.firstName": "First Name",
+    "auth.lastName": "Last Name",
+    "auth.confirmPassword": "Confirm Password",
+    "auth.passwordsDoNotMatch": "Passwords do not match",
+    "auth.invalidCredentials": "Invalid email or password",
+    "auth.loginSuccess": "Login successful",
+    "auth.logoutSuccess": "Logout successful",
+    "auth.registerSuccess": "Registration successful",
+  },
+};
+
+const I18nContext = createContext<I18nContextType | null>(null);
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("gestfacturation_language") as Language) || "fr";
+    }
+    return "fr";
+  });
+
+  const setLanguage = useCallback((lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem("gestfacturation_language", lang);
+    document.documentElement.lang = lang;
+  }, []);
+
+  const t = useCallback(
+    (key: string) => {
+      return translations[language][key as keyof typeof translations.fr] || key;
+    },
+    [language]
+  );
+
+  return (
+    <I18nContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
+}
+
+export function useI18n() {
+  const context = useContext(I18nContext);
+  if (!context) {
+    throw new Error("useI18n must be used within an I18nProvider");
+  }
+  return context;
+}

@@ -1,1 +1,1 @@
-export declare function ProductsPage(): import("react/jsx-runtime").JSX.Element;
+export declare function ProductsPage(): any;

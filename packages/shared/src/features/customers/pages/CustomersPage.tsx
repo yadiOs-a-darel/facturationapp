@@ -1,258 +1,299 @@
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import {
   useCustomers,
   useCreateCustomer,
-  useUpdateCustomer,
   useDeleteCustomer,
+  useUpdateCustomer,
 } from "../hooks/use-customers";
-import type { CustomerType } from "../types";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Card, CardContent } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
+import { Badge } from "../../../components/ui/badge";
+import {
+  DataTable,
+  type Column,
+  RowActions,
+} from "../../../components/ui/data-table";
+import { EmptyState } from "../../../components/ui/empty-state";
+import { PageHeader } from "../../../components/layout/page-header";
+import { MoreVertical, Search, Plus, Trash2, Edit, Filter, Users } from "lucide-react";
+import { useI18n } from "../../../lib/i18n";
+import type { Customer } from "../types";
+import { usePageTitle } from "../../../hooks/use-page-title";
 
 export function CustomersPage() {
-  const { data, isLoading, error } = useCustomers();
+  usePageTitle("Clients");
+  const { data: customers, isLoading } = useCustomers();
   const createCustomer = useCreateCustomer();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const updateCustomer = useUpdateCustomer(editingId ?? "");
+  const updateCustomer = useUpdateCustomer;
   const deleteCustomer = useDeleteCustomer();
+  const { t } = useI18n();
 
-  const [code, setCode] = useState("");
-  const [denomination, setDenomination] = useState("");
-  const [type, setType] = useState<CustomerType>("RETAIL");
-  const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [form, setForm] = useState({
+    code: "",
+    denomination: "",
+    email: "",
+    phone: "",
+    type: "RETAIL" as any,
+    country: "DZ",
+  });
 
-  const resetForm = () => {
-    setCode("");
-    setDenomination("");
-    setType("RETAIL");
-    setPhone('');
-    setCity('');
-    setEditingId(null);
-  };
+  const filtered = customers?.data.filter((c) => {
+    const matchesSearch =
+      !search ||
+      c.denomination.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.toLowerCase().includes(search.toLowerCase());
+    const matchesType = !typeFilter || c.type === typeFilter;
+    return matchesSearch && matchesType;
+  }) ?? [];
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const payload = {
-      code,
-      denomination,
-      type,
-      country: "Algeria",
-      phone: phone || undefined,
-      city: city || undefined,
-    };
-
-    if (editingId) {
-      updateCustomer.mutate(payload, {
-        onSuccess: resetForm,
+  const handleSubmit = () => {
+    if (editingCustomer) {
+      updateCustomer(editingCustomer.id).mutate(form as any, {
+        onSuccess: () => {
+          setDialogOpen(false);
+          setEditingCustomer(null);
+          setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
+        },
       });
     } else {
-      createCustomer.mutate(payload, {
-        onSuccess: resetForm,
+      createCustomer.mutate(form as any, {
+        onSuccess: () => {
+          setDialogOpen(false);
+          setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
+        },
       });
     }
   };
 
-  const handleEdit = (id: string) => {
-    if (!data) return;
-    const c = data.data.find((x) => x.id === id);
-    if (!c) return;
-    setEditingId(id);
-    setCode(c.code);
-    setDenomination(c.denomination);
-    setType(c.type);
-    setPhone(c.phone || '');
-    setCity(c.city || '');
+  const handleEdit = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setForm({
+      code: customer.code,
+      denomination: customer.denomination,
+      email: customer.email || "",
+      phone: customer.phone || "",
+      type: customer.type,
+      country: customer.country,
+    });
+    setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm('Supprimer ce client ?')) return;
-    deleteCustomer.mutate(id);
+  const handleClose = () => {
+    setDialogOpen(false);
+    setEditingCustomer(null);
+    setForm({ code: "", denomination: "", email: "", phone: "", type: "RETAIL", country: "DZ" });
   };
+
+  const getTypeBadgeVariant = (type: string): "default" | "secondary" | "outline" => {
+    switch (type) {
+      case "RETAIL": return "default";
+      case "WHOLESALE": return "secondary";
+      default: return "outline";
+    }
+  };
+
+  const getTypeLabel = (type: string): string => {
+    const labels: Record<string, string> = {
+      RETAIL: t("customers.types.RETAIL"),
+      WHOLESALE: t("customers.types.WHOLESALE"),
+    };
+    return labels[type] || type;
+  };
+
+  const columns: Column<(typeof filtered)[0]>[] = [
+    {
+      key: "code",
+      label: t("customers.code"),
+      sortable: true,
+      render: (value: string) => <span className="text-sm">{value}</span>,
+    },
+    {
+      key: "denomination",
+      label: t("customers.denomination"),
+      sortable: true,
+      render: (value: string) => <span className="text-sm font-medium">{value}</span>,
+    },
+    {
+      key: "type",
+      label: t("customers.type"),
+      sortable: true,
+      render: (value: string) => (
+        <Badge variant={getTypeBadgeVariant(value)} size="sm">
+          {getTypeLabel(value)}
+        </Badge>
+      ),
+    },
+    {
+      key: "phone",
+      label: t("common.phone"),
+      sortable: true,
+      render: (value: string) => (
+        <span className="text-sm text-muted-foreground">{value || "-"}</span>
+      ),
+    },
+  ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 8 }}>Clients</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title={t("customers.title")}
+        description={`${filtered.length} client${filtered.length > 1 ? "s" : ""}`}
+        action={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t("customers.add")}
+          </Button>
+        }
+      />
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-          gap: 12,
-          alignItems: 'end',
-          background: '#ffffff',
-          padding: 16,
-          borderRadius: 12,
-          boxShadow: '0 10px 25px rgba(15,23,42,0.06)',
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <label style={{ fontSize: 12, color: '#4b5563' }}>Code</label>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            style={{
-              marginTop: 4,
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              fontSize: 14,
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: '#4b5563' }}>Dénomination</label>
-          <input
-            value={denomination}
-            onChange={(e) => setDenomination(e.target.value)}
-            required
-            style={{
-              marginTop: 4,
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              fontSize: 14,
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: '#4b5563' }}>Type</label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as CustomerType)}
-            style={{
-              marginTop: 4,
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              fontSize: 14,
-            }}
-          >
-            <option value="RETAIL">Détail</option>
-            <option value="WHOLESALE">Gros</option>
-            <option value="ORGANIZATION">Organisme</option>
-            <option value="MINISTRY">Ministère</option>
-            <option value="OTHER">Autre</option>
-          </select>
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: '#4b5563' }}>Téléphone</label>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={{
-              marginTop: 4,
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              fontSize: 14,
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: '#4b5563' }}>Ville</label>
-          <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            style={{
-              marginTop: 4,
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              fontSize: 14,
-            }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={createCustomer.isPending || updateCustomer.isPending}
-          style={{
-            gridColumn: 'span 5',
-            marginTop: 4,
-            alignSelf: 'stretch',
-            padding: '10px 16px',
-            borderRadius: 9999,
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: 600,
-            color: '#ffffff',
-            background: editingId ? '#f59e0b' : '#2563eb',
-            opacity: createCustomer.isPending || updateCustomer.isPending ? 0.7 : 1,
-          }}
-        >
-          {editingId ? 'Mettre à jour le client' : 'Ajouter le client'}
-        </button>
-      </form>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("common.search")}
+                className="pl-9"
+              />
+            </div>
 
-      {isLoading && <p style={{ fontSize: 14 }}>Chargement…</p>}
-      {error && (
-        <p style={{ fontSize: 14, color: '#b91c1c' }}>
-          Impossible de charger les clients.
-        </p>
-      )}
-      {data && (
-        <table style={{ width: '100%', fontSize: 14, marginTop: 12, borderCollapse: 'collapse' }}>
-          <thead style={{ background: '#f3f4f6' }}>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Code</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Dénomination</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Type</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Téléphone</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Ville</th>
-              <th style={{ textAlign: 'right', padding: '8px' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.data.map((c) => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '8px' }}>{c.code}</td>
-                <td style={{ padding: '8px' }}>{c.denomination}</td>
-                <td style={{ padding: '8px' }}>{c.type}</td>
-                <td style={{ padding: '8px' }}>{c.phone ?? '—'}</td>
-                <td style={{ padding: '8px' }}>{c.city ?? '—'}</td>
-                <td style={{ padding: '8px', textAlign: 'right' }}>
-                  <button
-                    onClick={() => handleEdit(c.id)}
-                    style={{
-                      marginRight: 8,
-                      padding: '4px 8px',
-                      borderRadius: 8,
-                      border: '1px solid #d1d5db',
-                      background: '#ffffff',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: 8,
-                      border: '1px solid #fecaca',
-                      background: '#fee2e2',
-                      color: '#b91c1c',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Supprimer
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="mr-2 h-4 w-4" />
+                  {typeFilter ? getTypeLabel(typeFilter) : "Type"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setTypeFilter("")}>
+                  Tous les types
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTypeFilter("RETAIL")}>
+                  {t("customers.types.RETAIL")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTypeFilter("WHOLESALE")}>
+                  {t("customers.types.WHOLESALE")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardContent>
+
+        <DataTable
+          data={filtered}
+          columns={columns}
+          isLoading={isLoading}
+          emptyState={
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title={t("customers.empty")}
+              description="Commencez par ajouter un nouveau client"
+              action={{
+                label: t("customers.add"),
+                onClick: () => setDialogOpen(true),
+              }}
+            />
+          }
+          actions={(row) => (
+            <RowActions
+              items={[
+                {
+                  label: t("common.edit"),
+                  icon: <Edit className="h-4 w-4" />,
+                  onClick: () => handleEdit(row),
+                },
+                {
+                  label: t("common.delete"),
+                  icon: <Trash2 className="h-4 w-4" />,
+                  destructive: true,
+                  onClick: () => deleteCustomer.mutate(row.id),
+                },
+              ]}
+            />
+          )}
+        />
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCustomer ? t("customers.update") : t("customers.add")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("customers.code")}</label>
+                <Input
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("customers.type")}</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                >
+                  <option value="RETAIL">{t("customers.types.RETAIL")}</option>
+                  <option value="WHOLESALE">{t("customers.types.WHOLESALE")}</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("customers.denomination")}</label>
+              <Input
+                value={form.denomination}
+                onChange={(e) => setForm({ ...form, denomination: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("common.phone")}</label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleSubmit} disabled={createCustomer.isPending}>
+              {editingCustomer ? t("common.update") : t("common.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-

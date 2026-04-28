@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@gestfacturation/shared": ["../../packages/shared/src"],
-      "@gestfacturation/shared/*": ["../../packages/shared/src/*"]
+      "@gestfacturation/shared/*": ["../../packages/shared/src/*"],
+      "@/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src"],

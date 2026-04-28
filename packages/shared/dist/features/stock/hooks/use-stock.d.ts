@@ -1,3 +1,5 @@
 import type { StockMovementsParams } from "../types";
-export declare function useStockMovements(params?: StockMovementsParams): import("@tanstack/react-query").UseQueryResult<import("../types").StockMovementsResponse, Error>;
-export declare function useStockAlerts(): import("@tanstack/react-query").UseQueryResult<import("../types").StockAlertsResponse, Error>;
+export declare function useStockMovements(params?: StockMovementsParams): any;
+export declare function useStockAlerts(): any;
+export declare function useAdjustStock(): any;
+export declare function useCurrentStock(productId: string | undefined): any;

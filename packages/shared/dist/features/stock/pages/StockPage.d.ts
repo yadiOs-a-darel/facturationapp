@@ -1,1 +1,1 @@
-export declare function StockPage(): import("react/jsx-runtime").JSX.Element;
+export declare function StockPage(): any;

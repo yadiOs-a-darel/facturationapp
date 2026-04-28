@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { invoicesKeys } from "../../../lib/query";
 import { fetchInvoices, fetchInvoice, createInvoice, updateInvoice, deleteInvoice, } from "../api/client";
 export const invoiceKeys = {
@@ -28,6 +29,12 @@ export function useCreateInvoice() {
         mutationFn: (payload) => createInvoice(payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+            toast.success("Facture créée avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la création de la facture", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }
@@ -38,6 +45,12 @@ export function useUpdateInvoice(id) {
         onSuccess: (updatedInvoice) => {
             queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
             queryClient.setQueryData(invoiceKeys.detail(id), updatedInvoice);
+            toast.success("Facture mise à jour avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la mise à jour de la facture", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }
@@ -47,6 +60,12 @@ export function useDeleteInvoice() {
         mutationFn: (id) => deleteInvoice(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+            toast.success("Facture supprimée avec succès");
+        },
+        onError: (error) => {
+            toast.error("Erreur lors de la suppression de la facture", {
+                description: error instanceof Error ? error.message : "Une erreur est survenue",
+            });
         },
     });
 }

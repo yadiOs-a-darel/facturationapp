@@ -54,7 +54,8 @@ export async function createPaymentHandler(req: AuthenticatedRequest, res: Respo
     return res.status(400).json({ error: 'Mode de paiement invalide' });
   }
 
-  const paymentDate = date ? new Date(date) : new Date();
+  const now = new Date();
+  const paymentDate = date ? new Date(date) : now;
 
   let result: any;
 
@@ -68,6 +69,7 @@ export async function createPaymentHandler(req: AuthenticatedRequest, res: Respo
       reference: reference ?? null,
       date: paymentDate,
       notes: notes ?? null,
+      createdAt: now,
     });
 
     const currentPaid = parseFloat(String(invoice.paidAmount)) || 0;

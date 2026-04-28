@@ -1,10 +1,22 @@
 import { QueryClient } from '@tanstack/react-query';
 export declare function createQueryClient(): QueryClient;
+export declare const QueryKeys: {
+    session: readonly ["session"];
+    invoices: readonly ["invoices"];
+    invoice: (id: string) => readonly ["invoices", string];
+    products: readonly ["products"];
+    product: (id: string) => readonly ["products", string];
+    stock: readonly ["stock"];
+    stockEntry: (id: string) => readonly ["stock", "detail", string];
+    customers: readonly ["customers"];
+    customer: (id: string) => readonly ["customers", string];
+};
 export declare const sessionKeys: {
     all: readonly ["session"];
 };
 export declare const tenantKeys: {
     all: readonly ["tenant"];
+    detail: (id: string) => readonly ["tenant", "detail", string];
 };
 export declare const customersKeys: {
     all: readonly ["customers"];

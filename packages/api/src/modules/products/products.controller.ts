@@ -115,6 +115,8 @@ export async function createProductHandler(req: AuthenticatedRequest, res: Respo
 
   const p = parse.data;
 
+  const now = new Date();
+
   try {
     const id = randomUUID();
     await db.insert(schema.products).values({
@@ -137,6 +139,8 @@ export async function createProductHandler(req: AuthenticatedRequest, res: Respo
       isActive: p.isActive ?? true,
       isService: p.isService ?? false,
       categoryId: p.categoryId ?? null,
+      createdAt: now,
+      updatedAt: now,
     });
 
     const [created] = await db

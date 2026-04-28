@@ -32,3 +32,26 @@ export interface StockMovementsParams {
   from?: string;
   to?: string;
 }
+
+export interface StockAdjustmentPayload {
+  productId: string;
+  type: 'IN' | 'OUT' | 'ADJUSTMENT';
+  quantity: number;
+  unitCost?: number;
+  reason?: string;
+  reference?: string;
+}
+
+export interface CurrentStockResponse {
+  product: {
+    id: string;
+    code: string;
+    name: string;
+    stockQuantity: number;
+    stockMin: number;
+    stockMax?: number | null;
+    stockLocation?: string | null;
+    unit: string;
+  };
+  recentMovements: StockMovement[];
+}
