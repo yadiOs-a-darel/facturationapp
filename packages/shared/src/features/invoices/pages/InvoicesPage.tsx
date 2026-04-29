@@ -235,7 +235,7 @@ export function InvoicesPage() {
           isLoading={isLoading}
           emptyState={
             <EmptyState
-              icon={<FileText className="h-8 w-8" />}
+              icon={FileText}
               title={t("invoices.empty")}
               description="Commencez par créer une nouvelle facture"
               action={{

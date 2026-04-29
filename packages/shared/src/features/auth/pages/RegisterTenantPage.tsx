@@ -9,6 +9,7 @@ import { Label } from "../../../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Sparkles, CheckCircle2 } from "lucide-react";
 import { useRegisterTenant } from "../hooks/use-auth";
+import { ThemeSwitcher } from "../../../components/header/ThemeSwitcher";
 
 const registerSchema = z.object({
   tenantName: z.string().min(1, "Le nom de l'entreprise est requis"),
@@ -64,6 +65,9 @@ export function RegisterTenantPage() {
   if (isSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="absolute top-4 right-4">
+          <ThemeSwitcher />
+        </div>
         <Card className="w-full max-w-md border-0 shadow-lg">
           <CardContent className="pt-6 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
@@ -81,6 +85,9 @@ export function RegisterTenantPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeSwitcher />
+      </div>
       <Card className="w-full max-w-lg border-0 shadow-lg">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">

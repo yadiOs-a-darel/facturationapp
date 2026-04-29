@@ -250,7 +250,7 @@ export function ProductsPage() {
           isLoading={isLoading}
           emptyState={
             <EmptyState
-              icon={<Package className="h-8 w-8" />}
+              icon={Package}
               title={t("products.empty")}
               description="Commencez par ajouter un nouveau produit"
               action={{

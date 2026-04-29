@@ -8,6 +8,7 @@ import { Label } from "../../../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Sparkles } from "lucide-react";
 import { useLogin } from "../hooks/use-auth";
+import { ThemeSwitcher } from "../../../components/header/ThemeSwitcher";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalide").min(1, "L'email est requis"),
@@ -37,6 +38,9 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
+      <div className="absolute top-4 right-4">
+        <ThemeSwitcher />
+      </div>
       <div className="flex-1 flex items-center justify-center px-8 bg-background">
         <div className="w-full max-w-md">
           <Card className="border-0 shadow-none">
