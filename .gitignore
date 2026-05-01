@@ -1,1 +1,51 @@
+# Dependencies
 node_modules
+
+# Build outputs
+dist/
+build/
+.next/
+*.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (local development)
+packages/api/uploads/
+
+# Prisma
+packages/database/prisma/migrations/*.bak
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Electron
+packages/desktop/dist/

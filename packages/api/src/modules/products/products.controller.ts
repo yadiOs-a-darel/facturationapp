@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 import { z } from 'zod';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, like, lte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
@@ -53,7 +53,7 @@ export async function listProducts(req: AuthenticatedRequest, res: Response) {
     conditions.push(like(schema.products.name, pattern));
   }
   if (lowStock) {
-    conditions.push(schema.products.stockQuantity.lte(schema.products.stockMin as any));
+    conditions.push(lte(schema.products.stockQuantity, schema.products.stockMin));
   }
 
   const offset = (page - 1) * limit;
@@ -175,9 +175,10 @@ export async function updateProductHandler(req: AuthenticatedRequest, res: Respo
     return res.status(404).json({ error: 'Produit introuvable' });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   await db
     .update(schema.products)
-    .set(parse.data)
+    .set(parse.data as any)
     .where(and(eq(schema.products.id, id), eq(schema.products.tenantId, tenantId)));
 
   const [updated] = await db

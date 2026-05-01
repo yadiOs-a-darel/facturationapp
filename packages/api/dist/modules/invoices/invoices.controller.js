@@ -66,6 +66,7 @@ async function generateInvoiceNumber(tenantId) {
             .from(db_1.schema.numberingConfig)
             .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(db_1.schema.numberingConfig.tenantId, tenantId), (0, drizzle_orm_1.eq)(db_1.schema.numberingConfig.documentType, documentType)))
             .limit(1);
+        const now = new Date();
         if (existing.length === 0) {
             await tx.insert(db_1.schema.numberingConfig).values({
                 id: (0, crypto_1.randomUUID)(),
@@ -74,6 +75,8 @@ async function generateInvoiceNumber(tenantId) {
                 prefix,
                 currentNumber: 1,
                 padding,
+                createdAt: now,
+                updatedAt: now,
             });
             currentNumber = 1;
         }
@@ -178,6 +181,7 @@ async function createInvoiceHandler(req, res) {
     const { subtotalHT, taxAmount, totalTTC } = computeTotals(payload.items);
     try {
         let createdInvoice;
+        const now = new Date();
         await db_1.db.transaction(async (tx) => {
             const invoiceId = (0, crypto_1.randomUUID)();
             await tx.insert(db_1.schema.invoices).values({
@@ -187,7 +191,7 @@ async function createInvoiceHandler(req, res) {
                 createdById: userId ?? null,
                 number,
                 type: payload.type,
-                issueDate: payload.issueDate ? new Date(payload.issueDate) : new Date(),
+                issueDate: payload.issueDate ? new Date(payload.issueDate) : now,
                 dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
                 status: 'DRAFT',
                 subtotalHT: String(subtotalHT.toFixed(2)),
@@ -198,6 +202,8 @@ async function createInvoiceHandler(req, res) {
                 paidAmount: '0',
                 notes: payload.notes ?? null,
                 terms: payload.terms ?? null,
+                createdAt: now,
+                updatedAt: now,
             });
             for (const [index, item] of payload.items.entries()) {
                 await tx.insert(db_1.schema.invoiceItems).values({

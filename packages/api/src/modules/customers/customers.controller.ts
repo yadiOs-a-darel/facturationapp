@@ -50,10 +50,7 @@ export async function listCustomers(req: AuthenticatedRequest, res: Response) {
   if (search) {
     const pattern = `%${search}%`;
     conditions.push(
-      and(
-        // simulons un OR via like successifs; pour garder simple, on filtre surtout sur denomination/email/code
-        like(schema.customers.denomination, pattern),
-      ),
+      like(schema.customers.denomination, pattern),
     );
   }
 

@@ -99,7 +99,7 @@ export async function adjustStockHandler(req: AuthenticatedRequest, res: Respons
 
   const product = productRows[0];
 
-  let newStock = product.stockQuantity;
+  let newStock = product.stockQuantity ?? 0;
   if (type === 'IN') {
     newStock += quantity;
   } else if (type === 'OUT') {
