@@ -1,5 +1,7 @@
 import 'dotenv/config';
+// @ts-ignore - mysql2 types may not be present
 import { createPool } from 'mysql2/promise';
+// @ts-ignore - drizzle types may not be present
 import { drizzle } from 'drizzle-orm/mysql2';
 import * as schema from './schema';
 

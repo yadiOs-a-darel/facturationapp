@@ -161,6 +161,7 @@ async function updateProductHandler(req, res) {
     if (existing.length === 0) {
         return res.status(404).json({ error: 'Produit introuvable' });
     }
+<<<<<<< HEAD
     const parsed = parse.data;
     const updateData = {};
     for (const key of Object.keys(parsed)) {
@@ -169,6 +170,9 @@ async function updateProductHandler(req, res) {
             updateData[k] = parsed[k];
         }
     }
+=======
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+>>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
     await db_1.db
         .update(db_1.schema.products)
         .set(updateData)

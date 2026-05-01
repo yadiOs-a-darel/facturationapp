@@ -102,8 +102,11 @@ async function registerTenant(req, res) {
             country: 'DZ',
             plan: 'BASIC',
             planStatus: 'TRIAL',
+<<<<<<< HEAD
             licenseKey,
             licenseValidatedAt: now,
+=======
+>>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
             maxUsers: 3,
             maxProducts: 500,
             createdAt: now,

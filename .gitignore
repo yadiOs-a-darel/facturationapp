@@ -12,6 +12,7 @@ build
 .env.local
 .env.*.local
 
+<<<<<<< HEAD
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -27,6 +28,7 @@ build
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -60,3 +62,24 @@ packages/api/uploads
 
 # Electron
 packages/desktop/out
+=======
+# Testing
+coverage/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (local development)
+packages/api/uploads/
+
+# Prisma
+packages/database/prisma/migrations/*.bak
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Electron
+packages/desktop/dist/
+>>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb

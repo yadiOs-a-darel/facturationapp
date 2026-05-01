@@ -15,6 +15,11 @@ const tenants_routes_1 = require("./modules/tenants/tenants.routes");
 const customers_routes_1 = require("./modules/customers/customers.routes");
 const products_routes_1 = require("./modules/products/products.routes");
 const invoices_routes_1 = require("./modules/invoices/invoices.routes");
+// Détermine le répertoire de l'exécutable ou du script
+// Compatible avec pkg : process.pkg.path pointe vers le dossier de l'exécutable
+const appDir = typeof process.pkg !== 'undefined' && process.pkg?.path
+    ? process.pkg.path
+    : __dirname;
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
@@ -22,7 +27,8 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json());
 app.use((0, morgan_1.default)('dev'));
-app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
+// Sert les fichiers uploads depuis le dossier de l'exécutable
+app.use('/uploads', express_1.default.static(path_1.default.join(appDir, 'uploads')));
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'gestfacturation-api' });
 });
@@ -34,4 +40,5 @@ app.use('/api/invoices', invoices_routes_1.invoicesRouter);
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`API GestFacturation démarrée sur http://localhost:${PORT}`);
+    console.log(`Répertoire: ${appDir}`);
 });

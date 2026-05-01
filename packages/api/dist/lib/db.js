@@ -34,7 +34,15 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schema = exports.db = void 0;
+<<<<<<< HEAD
 // Import local database files (for pkg compatibility)
 var db_1 = require("../database/db");
 Object.defineProperty(exports, "db", { enumerable: true, get: function () { return db_1.db; } });
 exports.schema = __importStar(require("../database/schema"));
+=======
+// Import relatif pour compatibilité avec pkg
+const db_1 = require("../vendor/database/db");
+Object.defineProperty(exports, "db", { enumerable: true, get: function () { return db_1.db; } });
+const schema = __importStar(require("../vendor/database/schema"));
+exports.schema = schema;
+>>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
