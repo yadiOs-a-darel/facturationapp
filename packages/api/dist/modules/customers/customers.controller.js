@@ -50,9 +50,7 @@ async function listCustomers(req, res) {
     }
     if (search) {
         const pattern = `%${search}%`;
-        conditions.push((0, drizzle_orm_1.and)(
-        // simulons un OR via like successifs; pour garder simple, on filtre surtout sur denomination/email/code
-        (0, drizzle_orm_1.like)(db_1.schema.customers.denomination, pattern)));
+        conditions.push((0, drizzle_orm_1.like)(db_1.schema.customers.denomination, pattern));
     }
     const offset = (page - 1) * limit;
     const [rows, totalRows] = await Promise.all([
@@ -105,6 +103,7 @@ async function createCustomerHandler(req, res) {
         return res.status(400).json({ error: 'Données invalides', details: parse.error.flatten() });
     }
     const payload = parse.data;
+    const now = new Date();
     try {
         const id = (0, crypto_1.randomUUID)();
         await db_1.db.insert(db_1.schema.customers).values({
@@ -128,6 +127,8 @@ async function createCustomerHandler(req, res) {
             currency: payload.currency ?? 'DZD',
             isActive: payload.isActive ?? true,
             notes: payload.notes ?? null,
+            createdAt: now,
+            updatedAt: now,
         });
         const [created] = await db_1.db
             .select()

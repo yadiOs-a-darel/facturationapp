@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schema = exports.db = void 0;
-var db_1 = require("@gestfacturation/database/src/db");
+// Import local database files (for pkg compatibility)
+var db_1 = require("../database/db");
 Object.defineProperty(exports, "db", { enumerable: true, get: function () { return db_1.db; } });
-exports.schema = __importStar(require("@gestfacturation/database/src/schema"));
+exports.schema = __importStar(require("../database/schema"));

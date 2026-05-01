@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Ce script est exécuté après la suppression du package
+
+if [ "$1" = "purge" ]; then
+    echo "=> Suppression complète de GestFacturation API..."
+
+    # Supprimer les dossiers de données
+    rm -rf /var/lib/gesfacturation
+    rm -rf /var/log/gesfacturation
+
+    echo "✓ Données supprimées"
+fi
+
+exit 0

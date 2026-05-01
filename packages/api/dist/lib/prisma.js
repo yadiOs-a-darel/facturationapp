@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.prisma = void 0;
-const client_1 = require("@prisma/client");
-exports.prisma = new client_1.PrismaClient({
-    log: ['error', 'warn'],
-});
+// Prisma client disabled - using Drizzle ORM instead
+// This file is kept for compatibility but exports a stub
+exports.prisma = {
+    $disconnect: async () => { },
+    $connect: async () => { },
+};

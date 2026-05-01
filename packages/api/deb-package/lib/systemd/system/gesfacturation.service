@@ -1,0 +1,26 @@
+[Unit]
+Description=GestFacturation API Server
+Documentation=https://github.com/gestfacturation
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/gesfacturation
+ExecStart=/usr/bin/node /opt/gesfacturation/dist/index.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/gesfacturation/api.log
+StandardError=append:/var/log/gesfacturation/api.error.log
+
+# Environment
+Environment="NODE_ENV=production"
+EnvironmentFile=-/opt/gesfacturation/.env
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

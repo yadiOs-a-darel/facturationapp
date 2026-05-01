@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+echo "=> Configuration de GestFacturation API..."
+
+INSTALL_DIR="/opt/gesfacturation"
+
+# Créer le dossier de données
+mkdir -p /var/lib/gesfacturation
+mkdir -p /var/log/gesfacturation
+
+# Copier le fichier d'exemple .env s'il n'existe pas
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+    cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+    echo "✓ Fichier .env créé depuis .env.example"
+fi
+
+# Activer et démarrer le service systemd
+systemctl daemon-reload
+systemctl enable gesfacturation.service 2>/dev/null || true
+systemctl start gesfacturation.service 2>/dev/null || true
+
+echo "✓ Service systemd configuré"
+echo ""
+echo "=========================================="
+echo "  GestFacturation API installée avec succès !"
+echo "=========================================="
+echo ""
+echo "Commandes utiles :"
+echo "  systemctl status gesfacturation  - Voir l'état du service"
+echo "  systemctl restart gesfacturation - Redémarrer le service"
+echo "  journalctl -u gesfacturation -f  - Voir les logs en temps réel"
+echo ""
+echo "Configuration :"
+echo "  Fichier .env : $INSTALL_DIR/.env"
+echo "  Logs : /var/log/gesfacturation/"
+echo ""
+echo "L'API est accessible sur http://localhost:4000"
+echo "=========================================="
+
+exit 0

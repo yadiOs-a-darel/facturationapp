@@ -7,6 +7,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
+import { validateLicenseKey } from '../../lib/license-validator';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -20,6 +21,7 @@ const registerTenantSchema = z.object({
   adminPassword: z.string().min(6),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
+  licenseKey: z.string().min(1),
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
@@ -92,7 +94,12 @@ export async function registerTenant(req: Request, res: Response) {
     return res.status(400).json({ error: 'Données invalides', details: parse.error.flatten() });
   }
 
-  const { tenantName, tenantSlug, adminEmail, adminPassword, firstName, lastName } = parse.data;
+  const { tenantName, tenantSlug, adminEmail, adminPassword, firstName, lastName, licenseKey } = parse.data;
+
+  // Valider la licence
+  if (!licenseKey || !validateLicenseKey(licenseKey)) {
+    return res.status(401).json({ error: 'Clé de licence invalide' });
+  }
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
@@ -112,6 +119,8 @@ export async function registerTenant(req: Request, res: Response) {
       country: 'DZ',
       plan: 'BASIC',
       planStatus: 'TRIAL',
+      licenseKey,
+      licenseValidatedAt: now,
       maxUsers: 3,
       maxProducts: 500,
       createdAt: now,

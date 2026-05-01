@@ -2,6 +2,7 @@
   "name": "@gestfacturation/database",
   "version": "0.1.0",
   "private": true,
+  "main": "src/db.ts",
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

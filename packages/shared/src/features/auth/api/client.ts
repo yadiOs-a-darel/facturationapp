@@ -6,6 +6,17 @@ export interface AuthResult {
   error?: Error;
 }
 
+export interface ValidateLicensePayload {
+  licenseKey: string;
+}
+
+export interface ValidateLicenseResponse {
+  valid: boolean;
+  licenseKey?: string;
+  message?: string;
+  error?: string;
+}
+
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>("/auth/login", payload);
   return data;
@@ -13,6 +24,11 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 export async function registerTenant(payload: RegisterTenantPayload): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>("/auth/register-tenant", payload);
+  return data;
+}
+
+export async function validateLicense(payload: ValidateLicensePayload): Promise<ValidateLicenseResponse> {
+  const { data } = await apiClient.post<ValidateLicenseResponse>("/auth/validate-license", payload);
   return data;
 }
 

@@ -1,0 +1,11 @@
+Package: gesfacturation
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Essential: no
+Depends: nodejs (>= 18.0.0), mysql-server
+Maintainer: GestFacturation <support@gestfacturation.com>
+Description: API de gestion de facturation
+  Serveur API Express pour la gestion de facturation, clients, produits et stocks.
+  Inclut un service systemd pour un démarrage automatique.

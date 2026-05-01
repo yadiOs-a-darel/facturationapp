@@ -59,8 +59,8 @@ export function useRegisterTenant() {
       });
       navigate({ to: "/" });
     },
-    onError: (error) => {
-      const message = getErrorMessage(error);
+    onError: (error: any) => {
+      const message = error?.response?.data?.error || getErrorMessage(error);
       toast.error("Échec de l'inscription", { description: message });
     },
   });

@@ -49,12 +49,7 @@ export async function listCustomers(req: AuthenticatedRequest, res: Response) {
   }
   if (search) {
     const pattern = `%${search}%`;
-    conditions.push(
-      and(
-        // simulons un OR via like successifs; pour garder simple, on filtre surtout sur denomination/email/code
-        like(schema.customers.denomination, pattern),
-      ),
-    );
+    conditions.push(like(schema.customers.denomination, pattern));
   }
 
   const offset = (page - 1) * limit;

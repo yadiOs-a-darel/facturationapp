@@ -8,3 +8,5 @@ exports.stockRouter = (0, express_1.Router)();
 exports.stockRouter.use(auth_1.authMiddleware);
 exports.stockRouter.get('/movements', stock_controller_1.listStockMovements);
 exports.stockRouter.get('/alerts', stock_controller_1.listStockAlerts);
+exports.stockRouter.get('/:productId', stock_controller_1.getCurrentStock);
+exports.stockRouter.post('/adjust', stock_controller_1.adjustStockHandler);

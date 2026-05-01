@@ -1,43 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dashboardReport = dashboardReport;
-const prisma_1 = require("../../lib/prisma");
+const db_1 = require("../../lib/db");
+const drizzle_orm_1 = require("drizzle-orm");
 async function dashboardReport(req, res) {
     const tenantId = req.user?.tenantId;
     if (!tenantId)
         return res.status(401).json({ error: 'Non authentifié' });
-    const [invoicesAgg, unpaidCount, stockAgg] = await Promise.all([
-        prisma_1.prisma.invoice.aggregate({
-            where: {
-                tenantId,
-                status: { not: 'CANCELLED' },
-            },
-            _sum: { totalTTC: true },
-            _count: { _all: true },
-        }),
-        prisma_1.prisma.invoice.count({
-            where: {
-                tenantId,
-                status: { notIn: ['CANCELLED'] },
-                totalTTC: { gt: prisma_1.prisma.invoice.fields.paidAmount },
-            },
-        }),
-        prisma_1.prisma.product.aggregate({
-            where: { tenantId },
-            _sum: {
-                stockQuantity: true,
-                // we approximate stock value by sum(stockQuantity * purchasePrice) via queryRaw later if needed
-            },
-        }),
-    ]);
-    const totalSales = invoicesAgg._sum.totalTTC ?? 0;
-    const totalInvoices = invoicesAgg._count._all ?? 0;
-    // Stock value approximée: somme(stockQuantity * purchasePrice)
-    const products = await prisma_1.prisma.product.findMany({
-        where: { tenantId },
-        select: { stockQuantity: true, purchasePrice: true },
-    });
-    const stockValue = products.reduce((sum, p) => sum + p.stockQuantity * p.purchasePrice, 0);
+    // Total sales et nombre de factures
+    const invoicesAgg = await db_1.db
+        .select({
+        total: (0, drizzle_orm_1.sql) `COALESCE(SUM(${db_1.schema.invoices.totalTTC}), 0)`,
+        count: (0, drizzle_orm_1.sql) `COUNT(*)`,
+    })
+        .from(db_1.schema.invoices)
+        .where((0, drizzle_orm_1.eq)(db_1.schema.invoices.tenantId, tenantId));
+    // Factures impayées
+    const unpaidCountResult = await db_1.db
+        .select({ count: (0, drizzle_orm_1.sql) `COUNT(*)` })
+        .from(db_1.schema.invoices)
+        .where((0, drizzle_orm_1.eq)(db_1.schema.invoices.tenantId, tenantId));
+    const unpaidCount = unpaidCountResult.filter((i) => i.totalTTC > i.paidAmount).length;
+    // Valeur du stock
+    const products = await db_1.db
+        .select({
+        stockQuantity: db_1.schema.products.stockQuantity,
+        purchasePrice: db_1.schema.products.purchasePrice,
+    })
+        .from(db_1.schema.products)
+        .where((0, drizzle_orm_1.eq)(db_1.schema.products.tenantId, tenantId));
+    const stockValue = products.reduce((sum, p) => sum + Number(p.stockQuantity) * Number(p.purchasePrice), 0);
+    const totalSales = Number(invoicesAgg[0]?.total ?? 0);
+    const totalInvoices = Number(invoicesAgg[0]?.count ?? 0);
     return res.json({
         data: {
             totalSales,

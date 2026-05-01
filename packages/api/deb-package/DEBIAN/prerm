@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+echo "=> Arrêt de GestFacturation API..."
+
+# Arrêter le service systemd
+systemctl stop gesfacturation.service 2>/dev/null || true
+systemctl disable gesfacturation.service 2>/dev/null || true
+
+echo "✓ Service arrêté"
+exit 0

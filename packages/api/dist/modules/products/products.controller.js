@@ -54,7 +54,7 @@ async function listProducts(req, res) {
         conditions.push((0, drizzle_orm_1.like)(db_1.schema.products.name, pattern));
     }
     if (lowStock) {
-        conditions.push(db_1.schema.products.stockQuantity.lte(db_1.schema.products.stockMin));
+        conditions.push((0, drizzle_orm_1.lte)(db_1.schema.products.stockQuantity, db_1.schema.products.stockMin));
     }
     const offset = (page - 1) * limit;
     const [rows, totalRows] = await Promise.all([
@@ -107,6 +107,7 @@ async function createProductHandler(req, res) {
         return res.status(400).json({ error: 'Données invalides', details: parse.error.flatten() });
     }
     const p = parse.data;
+    const now = new Date();
     try {
         const id = (0, crypto_1.randomUUID)();
         await db_1.db.insert(db_1.schema.products).values({
@@ -129,6 +130,8 @@ async function createProductHandler(req, res) {
             isActive: p.isActive ?? true,
             isService: p.isService ?? false,
             categoryId: p.categoryId ?? null,
+            createdAt: now,
+            updatedAt: now,
         });
         const [created] = await db_1.db
             .select()
@@ -158,9 +161,17 @@ async function updateProductHandler(req, res) {
     if (existing.length === 0) {
         return res.status(404).json({ error: 'Produit introuvable' });
     }
+    const parsed = parse.data;
+    const updateData = {};
+    for (const key of Object.keys(parsed)) {
+        const k = key;
+        if (parsed[k] !== undefined) {
+            updateData[k] = parsed[k];
+        }
+    }
     await db_1.db
         .update(db_1.schema.products)
-        .set(parse.data)
+        .set(updateData)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(db_1.schema.products.id, id), (0, drizzle_orm_1.eq)(db_1.schema.products.tenantId, tenantId)));
     const [updated] = await db_1.db
         .select()

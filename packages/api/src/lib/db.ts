@@ -1,3 +1,4 @@
-export { db } from '@gestfacturation/database/src/db';
-export * as schema from '@gestfacturation/database/src/schema';
+// Import local database files (for pkg compatibility)
+export { db } from '../database/db';
+export * as schema from '../database/schema';
 

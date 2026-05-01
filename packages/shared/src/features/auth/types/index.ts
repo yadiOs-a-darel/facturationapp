@@ -10,6 +10,7 @@ export interface RegisterTenantPayload {
   adminPassword: string;
   firstName: string;
   lastName: string;
+  licenseKey: string;
 }
 
 export interface AuthUser {

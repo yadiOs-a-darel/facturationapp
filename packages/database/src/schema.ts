@@ -31,6 +31,8 @@ export const tenants = mysqlTable('tenants', {
   planStatus: varchar('plan_status', { length: 32 }),
   trialEndsAt: datetime('trial_ends_at'),
   subscriptionEndsAt: datetime('subscription_ends_at'),
+  licenseKey: varchar('license_key', { length: 191 }).unique(),
+  licenseValidatedAt: datetime('license_validated_at'),
   maxUsers: int('max_users').notNull(),
   maxProducts: int('max_products').notNull(),
   createdAt: datetime('created_at').notNull(),

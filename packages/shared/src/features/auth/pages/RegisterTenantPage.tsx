@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,9 +7,10 @@ import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Sparkles, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useRegisterTenant } from "../hooks/use-auth";
 import { ThemeSwitcher } from "../../../components/header/ThemeSwitcher";
+import { toast } from "sonner";
 
 const registerSchema = z.object({
   tenantName: z.string().min(1, "Le nom de l'entreprise est requis"),
@@ -27,6 +28,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterTenantPage() {
   const { mutate: register, isPending: isLoading, isSuccess } = useRegisterTenant();
+  const search = useSearch({ strict: false }) as { licenseKey?: string };
 
   const {
     register: registerField,
@@ -59,7 +61,14 @@ export function RegisterTenantPage() {
   }, [tenantName, setValue]);
 
   const onSubmit = (values: RegisterFormValues) => {
-    register(values);
+    const licenseKey = search.licenseKey;
+    if (!licenseKey) {
+      toast.error("Licence manquante", {
+        description: "Veuillez d'abord valider votre licence.",
+      });
+      return;
+    }
+    register({ ...values, licenseKey });
   };
 
   if (isSuccess) {
@@ -186,15 +195,17 @@ export function RegisterTenantPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-sm text-muted-foreground text-center">
-            Déjà un compte ?{" "}
-            <Link
-              to="/auth/login"
-              className="font-medium text-primary hover:underline"
-            >
-              Se connecter
-            </Link>
-          </p>
+          {!search.licenseKey && (
+            <p className="mt-6 text-sm text-muted-foreground text-center">
+              Vous devez valider votre licence avant de créer un compte.{" "}
+              <Link
+                to="/auth/license"
+                className="font-medium text-primary hover:underline"
+              >
+                Valider la licence
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

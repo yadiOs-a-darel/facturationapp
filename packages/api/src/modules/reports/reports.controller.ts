@@ -1,48 +1,48 @@
 import type { Response } from 'express';
-import { prisma } from '../../lib/prisma';
+import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
+import { eq, sql } from 'drizzle-orm';
 
 export async function dashboardReport(req: AuthenticatedRequest, res: Response) {
   const tenantId = req.user?.tenantId;
   if (!tenantId) return res.status(401).json({ error: 'Non authentifié' });
 
-  const [invoicesAgg, unpaidCount, stockAgg] = await Promise.all([
-    prisma.invoice.aggregate({
-      where: {
-        tenantId,
-        status: { not: 'CANCELLED' },
-      },
-      _sum: { totalTTC: true },
-      _count: { _all: true },
-    }),
-    prisma.invoice.count({
-      where: {
-        tenantId,
-        status: { notIn: ['CANCELLED'] },
-        totalTTC: { gt: prisma.invoice.fields.paidAmount },
-      },
-    }),
-    prisma.product.aggregate({
-      where: { tenantId },
-      _sum: {
-        stockQuantity: true,
-        // we approximate stock value by sum(stockQuantity * purchasePrice) via queryRaw later if needed
-      },
-    }),
-  ]);
+  // Total sales et nombre de factures
+  const invoicesAgg = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(${schema.invoices.totalTTC}), 0)`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(schema.invoices)
+    .where(eq(schema.invoices.tenantId, tenantId));
 
-  const totalSales = invoicesAgg._sum.totalTTC ?? 0;
-  const totalInvoices = invoicesAgg._count._all ?? 0;
+  // Factures impayées
+  const unpaidCountResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(schema.invoices)
+    .where(
+      eq(schema.invoices.tenantId, tenantId)
+    );
+  const unpaidCount = unpaidCountResult.filter(
+    (i) => (i as any).totalTTC > (i as any).paidAmount
+  ).length;
 
-  // Stock value approximée: somme(stockQuantity * purchasePrice)
-  const products = await prisma.product.findMany({
-    where: { tenantId },
-    select: { stockQuantity: true, purchasePrice: true },
-  });
+  // Valeur du stock
+  const products = await db
+    .select({
+      stockQuantity: schema.products.stockQuantity,
+      purchasePrice: schema.products.purchasePrice,
+    })
+    .from(schema.products)
+    .where(eq(schema.products.tenantId, tenantId));
+
   const stockValue = products.reduce(
-    (sum, p) => sum + p.stockQuantity * p.purchasePrice,
+    (sum, p) => sum + Number(p.stockQuantity) * Number(p.purchasePrice),
     0,
   );
+
+  const totalSales = Number(invoicesAgg[0]?.total ?? 0);
+  const totalInvoices = Number(invoicesAgg[0]?.count ?? 0);
 
   return res.json({
     data: {

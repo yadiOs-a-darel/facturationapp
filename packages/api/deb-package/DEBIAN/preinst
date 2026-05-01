@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+echo "=> Préparation de l'installation de GestFacturation API..."
+
+# Vérifier que Node.js est installé
+if ! command -v node &> /dev/null; then
+    echo "ERREUR: Node.js n'est pas installé. Veuillez l'installer d'abord."
+    exit 1
+fi
+
+# Vérifier la version de Node.js
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 18 ]; then
+    echo "ERREUR: Node.js 18 ou supérieur est requis. Version actuelle: $(node -v)"
+    exit 1
+fi
+
+# Vérifier que MySQL est installé
+if ! command -v mysql &> /dev/null; then
+    echo "ATTENTION: MySQL n'est pas installé. L'API ne pourra pas fonctionner sans base de données."
+fi
+
+echo "✓ Pré-requis vérifiés"
+exit 0
