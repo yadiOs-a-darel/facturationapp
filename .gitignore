@@ -12,7 +12,6 @@ build
 .env.local
 .env.*.local
 
-<<<<<<< HEAD
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -28,7 +27,6 @@ build
 .DS_Store
 Thumbs.db
 
-<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -39,7 +37,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Testing
-coverage
+coverage/
 
 # TypeScript
 *.tsbuildinfo
@@ -50,36 +48,29 @@ coverage
 # Optional eslint cache
 .eslintcache
 
-# Prisma
-packages/database/prisma/migrations
-
-# Drizzle
-drizzle
-drizzle.meta.json
-
-# Uploads (sensitive files)
-packages/api/uploads
-
-# Electron
-packages/desktop/out
-=======
-# Testing
-coverage/
-
 # Database
 *.db
 *.sqlite
 *.sqlite3
 
-# Uploads (local development)
+# Uploads (sensitive files)
 packages/api/uploads/
 
 # Prisma
 packages/database/prisma/migrations/*.bak
 
-# TypeScript cache
-*.tsbuildinfo
+# Drizzle
+drizzle
+drizzle.meta.json
 
 # Electron
+packages/desktop/out
 packages/desktop/dist/
->>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
+
+# API standalone builds (too large to push)
+packages/api/bin/
+packages/api/build-*.sh
+packages/api/deb-output/
+packages/api/deb-package/
+packages/api/scripts/
+packages/api/standalone/
