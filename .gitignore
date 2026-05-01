@@ -1,1 +1,62 @@
+# Dependencies
 node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.out
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Prisma
+packages/database/prisma/migrations
+
+# Drizzle
+drizzle
+drizzle.meta.json
+
+# Uploads (sensitive files)
+packages/api/uploads
+
+# Electron
+packages/desktop/out
