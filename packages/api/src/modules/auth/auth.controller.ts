@@ -103,6 +103,17 @@ export async function registerTenant(req: Request, res: Response) {
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
+  // Verifier si le slug ou l'email existe deja
+  const existingTenant = await db.select().from(schema.tenants).where(eq(schema.tenants.slug, tenantSlug)).limit(1);
+  if (existingTenant.length > 0) {
+    return res.status(409).json({ error: 'Un compte avec ce slug existe déjà' });
+  }
+
+  const existingEmail = await db.select().from(schema.users).where(eq(schema.users.email, adminEmail)).limit(1);
+  if (existingEmail.length > 0) {
+    return res.status(409).json({ error: 'Un compte avec cet email existe déjà' });
+  }
+
   const tenantId = randomUUID();
   const adminUserId = randomUUID();
 
@@ -113,12 +124,22 @@ export async function registerTenant(req: Request, res: Response) {
       id: tenantId,
       name: tenantName,
       slug: tenantSlug,
+      logo: null,
       primaryColor: '#1976d2',
       secondaryColor: '#ffffff',
       fontFamily: 'Inter',
+      legalName: null,
+      taxNumber: null,
+      address: null,
+      city: null,
       country: 'DZ',
+      phone: null,
+      email: null,
+      website: null,
       plan: 'BASIC',
       planStatus: 'TRIAL',
+      trialEndsAt: null,
+      subscriptionEndsAt: null,
       licenseKey,
       licenseValidatedAt: now,
       maxUsers: 3,

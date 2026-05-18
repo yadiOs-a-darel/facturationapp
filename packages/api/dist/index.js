@@ -3,8 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config();
+require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
@@ -27,6 +26,13 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json());
 app.use((0, morgan_1.default)('dev'));
+// Disable caching for API routes
+app.use('/api', (_req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
 // Sert les fichiers uploads depuis le dossier de l'exécutable
 app.use('/uploads', express_1.default.static(path_1.default.join(appDir, 'uploads')));
 app.get('/api/health', (_req, res) => {

@@ -7,7 +7,9 @@ exports.generateLicenseKey = generateLicenseKey;
 exports.validateLicenseKey = validateLicenseKey;
 exports.extractUuidFromLicense = extractUuidFromLicense;
 const crypto_1 = __importDefault(require("crypto"));
-const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-license-secret-change-me';
+function getLicenseSecret() {
+    return process.env.LICENSE_SECRET || 'dev-license-secret-change-me';
+}
 /**
  * Génère une clé de licence signée avec HMAC-SHA256
  * Format: uuid.signature
@@ -15,7 +17,7 @@ const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-license-secret-change-
 function generateLicenseKey() {
     const uuid = crypto_1.default.randomUUID();
     const signature = crypto_1.default
-        .createHmac('sha256', LICENSE_SECRET)
+        .createHmac('sha256', getLicenseSecret())
         .update(uuid)
         .digest('hex');
     return `${uuid}.${signature}`;
@@ -40,11 +42,18 @@ function validateLicenseKey(licenseKey) {
     }
     // Recalculer la signature
     const expectedSignature = crypto_1.default
-        .createHmac('sha256', LICENSE_SECRET)
+        .createHmac('sha256', getLicenseSecret())
         .update(uuid)
         .digest('hex');
-    // Comparer les signatures (constant-time comparison)
-    return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    if (signature.length !== expectedSignature.length) {
+        return false;
+    }
+    try {
+        return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    }
+    catch {
+        return false;
+    }
 }
 /**
  * Extrait l'UUID d'une clé de licence

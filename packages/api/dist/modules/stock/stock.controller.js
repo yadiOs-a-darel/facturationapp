@@ -83,11 +83,7 @@ async function adjustStockHandler(req, res) {
         return res.status(404).json({ error: 'Produit introuvable' });
     }
     const product = productRows[0];
-<<<<<<< HEAD
     let newStock = Number(product.stockQuantity) || 0;
-=======
-    let newStock = product.stockQuantity ?? 0;
->>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
     if (type === 'IN') {
         newStock += quantity;
     }

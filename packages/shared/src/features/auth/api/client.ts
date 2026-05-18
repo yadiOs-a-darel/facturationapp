@@ -45,6 +45,7 @@ export async function getSession(): Promise<AuthResult> {
   if (!token) {
     return { error: new Error("No token") };
   }
+  
   try {
     const { data } = await apiClient.get<AuthResponse>("/auth/session");
     return { data: { user: data.user } };

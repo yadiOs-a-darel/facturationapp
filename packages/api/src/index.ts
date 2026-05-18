@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 
 import express from 'express';
 import cors from 'cors';
@@ -11,6 +10,9 @@ import { tenantRouter } from './modules/tenants/tenants.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { productsRouter } from './modules/products/products.routes';
 import { invoicesRouter } from './modules/invoices/invoices.routes';
+import { stockRouter } from './modules/stock/stock.routes';
+import { paymentMethodsRouter } from './modules/payment-methods/paymentMethods.routes';
+import { reportsRouter } from './modules/reports/reports.routes';
 
 // Type declaration pour process.pkg (pkg bundler)
 declare global {
@@ -40,6 +42,14 @@ app.use(
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Disable caching for API routes
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Sert les fichiers uploads depuis le dossier de l'exécutable
 app.use('/uploads', express.static(path.join(appDir, 'uploads')));
 
@@ -52,6 +62,9 @@ app.use('/api/tenants', tenantRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/invoices', invoicesRouter);
+app.use('/api/stock', stockRouter);
+app.use('/api/payment-methods', paymentMethodsRouter);
+app.use('/api/reports', reportsRouter);
 
 const PORT = process.env.PORT || 4000;
 
