@@ -6,6 +6,7 @@ import {
   createInvoiceHandler,
   updateInvoiceHandler,
   deleteInvoiceHandler,
+  cancelInvoiceHandler,
 } from './invoices.controller';
 import { createPaymentHandler } from '../payments/payments.controller';
 
@@ -17,6 +18,7 @@ invoicesRouter.get('/', listInvoices);
 invoicesRouter.get('/:id', getInvoiceById);
 invoicesRouter.post('/', createInvoiceHandler);
 invoicesRouter.put('/:id', updateInvoiceHandler);
+invoicesRouter.post('/:id/cancel', cancelInvoiceHandler);
 invoicesRouter.delete('/:id', deleteInvoiceHandler);
 invoicesRouter.post('/:id/payments', createPaymentHandler);
 

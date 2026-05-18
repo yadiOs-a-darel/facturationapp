@@ -10,6 +10,9 @@ import { tenantRouter } from './modules/tenants/tenants.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { productsRouter } from './modules/products/products.routes';
 import { invoicesRouter } from './modules/invoices/invoices.routes';
+import { stockRouter } from './modules/stock/stock.routes';
+import { paymentMethodsRouter } from './modules/payment-methods/paymentMethods.routes';
+import { reportsRouter } from './modules/reports/reports.routes';
 
 // Type declaration pour process.pkg (pkg bundler)
 declare global {
@@ -59,6 +62,9 @@ app.use('/api/tenants', tenantRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/invoices', invoicesRouter);
+app.use('/api/stock', stockRouter);
+app.use('/api/payment-methods', paymentMethodsRouter);
+app.use('/api/reports', reportsRouter);
 
 const PORT = process.env.PORT || 4000;
 

@@ -18,6 +18,10 @@ export interface Invoice {
   paymentMethod?: string | null;
   paymentDate?: string | null;
   paymentRef?: string | null;
+  notes?: string | null;
+  terms?: string | null;
+  items?: InvoiceItem[];
+  payments?: Array<Record<string, unknown>>;
   isBackdated: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,12 +44,45 @@ export interface InvoiceItem {
   unitPrice: number;
   discountRate?: number;
   taxRate?: number;
+  totalTTC?: number;
 }
 
 export type InvoiceUpsertPayload = Partial<Invoice> & {
-  customerId: string;
+  customerId?: string;
   items?: InvoiceItem[];
+  markAsPaid?: boolean;
+  paymentRef?: string | null;
+  isBackdated?: boolean;
 };
+
+export interface InvoiceDetail extends Invoice {
+  customer?: {
+    id: string;
+    denomination: string;
+    address?: string | null;
+    city?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    taxNumber?: string | null;
+  };
+  tenant?: {
+    name: string;
+    legalName?: string | null;
+    address?: string | null;
+    city?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    taxNumber?: string | null;
+  };
+}
+
+export interface RecordPaymentPayload {
+  amount: number;
+  methodCode: string;
+  reference?: string | null;
+  date?: string;
+  notes?: string | null;
+}
 
 export interface InvoicesListParams {
   status?: string;

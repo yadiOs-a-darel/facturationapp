@@ -248,6 +248,7 @@ export function CustomersPage() {
                 <Input
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  placeholder="Ex: 001"
                 />
               </div>
               <div className="space-y-2">
@@ -267,6 +268,7 @@ export function CustomersPage() {
               <Input
                 value={form.denomination}
                 onChange={(e) => setForm({ ...form, denomination: e.target.value })}
+                placeholder="Perlita"
               />
             </div>
             <div className="space-y-2">
@@ -274,6 +276,7 @@ export function CustomersPage() {
               <Input
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="Ex: ady@gmail.com"
               />
             </div>
             <div className="space-y-2">
@@ -281,6 +284,7 @@ export function CustomersPage() {
               <Input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="+236 70064394"
               />
             </div>
           </div>
