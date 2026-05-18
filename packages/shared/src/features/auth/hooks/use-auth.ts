@@ -30,8 +30,7 @@ export function useLogin() {
     mutationFn: (payload: LoginPayload) => login(payload),
     onSuccess: (data) => {
       localStorage.setItem("gestfacturation_token", data.token);
-      queryClient.setQueryData(QueryKeys.session, { data });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.session });
+      queryClient.setQueryData(QueryKeys.session, { user: data.user });
       toast.success("Connexion réussie", {
         description: `Bienvenue, ${data.user.firstName} ${data.user.lastName}`,
       });
@@ -52,8 +51,7 @@ export function useRegisterTenant() {
     mutationFn: (payload: RegisterTenantPayload) => registerTenant(payload),
     onSuccess: (data) => {
       localStorage.setItem("gestfacturation_token", data.token);
-      queryClient.setQueryData(QueryKeys.session, { data });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.session });
+      queryClient.setQueryData(QueryKeys.session, { user: data.user });
       toast.success("Compte créé avec succès", {
         description: `Bienvenue, ${data.user.firstName} ${data.user.lastName}`,
       });
@@ -87,6 +85,8 @@ export function useSignOut() {
 }
 
 export function useSession() {
+  const token = typeof window !== 'undefined' ? localStorage.getItem("gestfacturation_token") : null;
+  
   return useQuery({
     queryKey: QueryKeys.session,
     queryFn: async () => {
@@ -96,6 +96,7 @@ export function useSession() {
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
+    enabled: !!token,
   });
 }
 

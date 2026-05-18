@@ -16,19 +16,40 @@ pnpm run dev:desktop  # Electron desktop app
 # Build (for production)
 pnpm run build        # Builds @gestfacturation/shared then @gestfacturation/web
 
+# Build executable (API only)
+pnpm run build:exe        # Builds executable for all platforms
+pnpm run build:exe:linux  # Linux x64
+pnpm run build:exe:macos  # macOS x64
+pnpm run build:exe:win    # Windows x64 (.exe)
+
 # Linting
-pnpm run lint         # Runs lint across all packages
+pnpm run lint         # Runs lint across all packages (Biome)
+pnpm run lint:check   # Lint without fixing
+pnpm run format       # Format code with Biome
+
+# Type checking
+pnpm --filter @gestfacturation/shared type-check   # Type check shared package
+
+# Database
+pnpm run drizzle:generate   # Generate Drizzle migration
+pnpm run drizzle:migrate    # Run Drizzle migration
+
+# Environment
+# Copy .env.example to .env and configure:
+#   packages/api/.env.example
+#   packages/shared/.env.example
+#   apps/web/.env.example
 ```
 
 ## Monorepo Structure
 
-This is a pnpm workspace monorepo with four packages:
+This is a pnpm workspace monorepo with five packages:
 
 - `apps/web` - Vite + React web application (thin wrapper, imports everything from shared)
 - `apps/desktop` - Electron desktop application
 - `packages/shared` - All UI components, pages, hooks, and business logic
 - `packages/api` - Express.js API server
-- `packages/database` - Prisma/Drizzle database configuration
+- `packages/database` - Drizzle database configuration
 
 ## Key Architectural Patterns
 
@@ -89,22 +110,21 @@ Packages reference each other using `workspace:*` protocol:
 
 ## Environment Configuration
 
-Each package has its own `.env` file:
+Each package has its own `.env` file (see `.env.example` in each directory):
 
 - `packages/api/.env` - Database URL, JWT_SECRET, PORT
 - `packages/shared/.env` - VITE_API_URL
 - `apps/web/.env` - Vite environment variables
 
-## Database
+## Executable Build
 
-The database package supports both Prisma and Drizzle ORM:
+The API can be built as a standalone executable for Linux, macOS, and Windows using `pkg`. See `packages/api/README-EXECUTABLE.md` for detailed instructions.
 
-```bash
-# Prisma commands (run from packages/database)
-pnpm run prisma:generate
-pnpm run prisma:migrate
+After building, executables are placed in `packages/api/dist/executables/`:
+- `gestfacturation-api-linux-x64`
+- `gestfacturation-api-macos-x64`
+- `gestfacturation-api-win.exe`
 
-# Drizzle commands
-pnpm run drizzle:generate
-pnpm run drizzle:migrate
-```
+## Testing
+
+Currently, there are no test scripts defined in the repository. Test files (if any) are not committed to the source code.

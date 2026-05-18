@@ -2,10 +2,11 @@ packages:
   - apps/*
   - packages/*
 
+allowBuilds:
+  electron: false
+  esbuild: false
+
 ignoredBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
   - '@swc/core'
   - electron
   - esbuild
-  - prisma

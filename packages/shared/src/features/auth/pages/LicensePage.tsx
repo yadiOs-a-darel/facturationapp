@@ -44,13 +44,14 @@ export function LicensePage() {
                   <Input
                     id="licenseKey"
                     type="text"
-                    placeholder="xxxx-xxxx-xxxx-xxxx"
+                    placeholder="uuid.signature-hex"
                     value={licenseKey}
                     onChange={(e) => setLicenseKey(e.target.value)}
                     disabled={isPending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Format : UUID (ex: 550e8400-e29b-41d4-a716-446655440000)
+                    Collez la clé complète fournie par l&apos;administrateur (UUID + point + signature),
+                    par ex. 550e8400-e29b-41d4-a716-446655440000.a1b2c3...
                   </p>
                 </div>
 

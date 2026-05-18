@@ -10,10 +10,7 @@ Ce package contient l'API backend GestFacturation qui peut être compilée en un
 # 1. Installer les dépendances
 pnpm install
 
-# 2. Générer le client Prisma
-pnpm --filter @gestfacturation/database prisma:generate
-
-# 3. Compiler l'exécutable
+# 2. Compiler l'exécutable
 pnpm build:exe
 ```
 
@@ -66,7 +63,7 @@ NODE_ENV=production
 
 ```bash
 # Depuis le root du projet
-pnpm --filter @gestfacturation/database prisma:migrate
+pnpm --filter @gestfacturation/database drizzle:migrate
 ```
 
 ## ▶️ Démarrage
@@ -115,9 +112,9 @@ nohup ./gestfacturation-api-linux > api.log 2>&1 &
 
 ## 📝 Notes techniques
 
-### Prisma
+### Drizzle ORM
 
-Le client Prisma est généré automatiquement pendant le build. Le schéma est inclus dans l'exécutable.
+Le schéma Drizzle est utilisé pour la base de données.
 
 ### Fichiers uploads
 
@@ -128,14 +125,6 @@ Le dossier `uploads/` est servi statiquement par l'API. Assurez-vous qu'il exist
 Les exécutables sont compressés avec GZip pour réduire leur taille (~30-40% plus petits).
 
 ## 🐛 Troubleshooting
-
-### "Prisma Client not found"
-
-Régénérer le client Prisma :
-```bash
-pnpm --filter @gestfacturation/database prisma:generate
-pnpm build:exe
-```
 
 ### "Port already in use"
 

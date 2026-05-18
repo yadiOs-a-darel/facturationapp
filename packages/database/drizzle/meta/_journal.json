@@ -8,6 +8,20 @@
       "when": 1772103545896,
       "tag": "0000_open_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1777662173667,
+      "tag": "0001_dusty_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1777662397053,
+      "tag": "0002_zippy_shaman",
+      "breakpoints": true
     }
   ]
 }

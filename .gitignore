@@ -56,9 +56,6 @@ coverage/
 # Uploads (sensitive files)
 packages/api/uploads/
 
-# Prisma
-packages/database/prisma/migrations/*.bak
-
 # Drizzle
 drizzle
 drizzle.meta.json

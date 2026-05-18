@@ -205,7 +205,7 @@ export function CustomersPage() {
           isLoading={isLoading}
           emptyState={
             <EmptyState
-              icon={<Users className="h-8 w-8" />}
+              icon={Users}
               title={t("customers.empty")}
               description="Commencez par ajouter un nouveau client"
               action={{

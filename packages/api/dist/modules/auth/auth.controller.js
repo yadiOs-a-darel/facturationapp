@@ -88,6 +88,15 @@ async function registerTenant(req, res) {
         return res.status(401).json({ error: 'Clé de licence invalide' });
     }
     const passwordHash = await bcryptjs_1.default.hash(adminPassword, 10);
+    // Verifier si le slug ou l'email existe deja
+    const existingTenant = await db_1.db.select().from(db_1.schema.tenants).where((0, drizzle_orm_1.eq)(db_1.schema.tenants.slug, tenantSlug)).limit(1);
+    if (existingTenant.length > 0) {
+        return res.status(409).json({ error: 'Un compte avec ce slug existe déjà' });
+    }
+    const existingEmail = await db_1.db.select().from(db_1.schema.users).where((0, drizzle_orm_1.eq)(db_1.schema.users.email, adminEmail)).limit(1);
+    if (existingEmail.length > 0) {
+        return res.status(409).json({ error: 'Un compte avec cet email existe déjà' });
+    }
     const tenantId = (0, crypto_1.randomUUID)();
     const adminUserId = (0, crypto_1.randomUUID)();
     const now = new Date();
@@ -96,17 +105,24 @@ async function registerTenant(req, res) {
             id: tenantId,
             name: tenantName,
             slug: tenantSlug,
+            logo: null,
             primaryColor: '#1976d2',
             secondaryColor: '#ffffff',
             fontFamily: 'Inter',
+            legalName: null,
+            taxNumber: null,
+            address: null,
+            city: null,
             country: 'DZ',
+            phone: null,
+            email: null,
+            website: null,
             plan: 'BASIC',
             planStatus: 'TRIAL',
-<<<<<<< HEAD
+            trialEndsAt: null,
+            subscriptionEndsAt: null,
             licenseKey,
             licenseValidatedAt: now,
-=======
->>>>>>> 6598cdc29998dce80e444f03bb2376321731c8bb
             maxUsers: 3,
             maxProducts: 500,
             createdAt: now,

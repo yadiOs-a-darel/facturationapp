@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useDashboard } from "../hooks/use-reports";
 import { useAuth } from "../../auth/hooks/use-auth";
 import { useI18n } from "../../../lib/i18n";
@@ -39,6 +40,7 @@ const colorConfig: Record<"emerald" | "blue" | "red" | "amber", ColorConfig> = {
 
 export function DashboardPage(): JSX.Element {
   usePageTitle("Tableau de bord");
+  const navigate = useNavigate();
   const { data, isLoading } = useDashboard();
   const { user } = useAuth();
   const { t } = useI18n();
@@ -136,19 +138,35 @@ export function DashboardPage(): JSX.Element {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-2 py-4"
+              onClick={() => navigate({ to: "/invoices" })}
+            >
               <FileText className="h-5 w-5" />
               <span className="text-xs">Nouvelle facture</span>
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-2 py-4"
+              onClick={() => navigate({ to: "/products" })}
+            >
               <Package className="h-5 w-5" />
               <span className="text-xs">Ajouter produit</span>
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-2 py-4"
+              onClick={() => navigate({ to: "/invoices" })}
+            >
               <TrendingUp className="h-5 w-5" />
               <span className="text-xs">Voir rapports</span>
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-2 py-4"
+              onClick={() => navigate({ to: "/stock" })}
+            >
               <AlertCircle className="h-5 w-5" />
               <span className="text-xs">Alertes stock</span>
             </Button>

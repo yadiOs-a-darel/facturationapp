@@ -20,9 +20,12 @@ export async function validateLicense(req: AuthenticatedRequest, res: Response) 
   const { licenseKey } = parse.data;
 
   if (!validateLicenseKey(licenseKey)) {
+    const formatHint = licenseKey.includes('.')
+      ? 'La signature ne correspond pas (vérifiez la clé complète et LICENSE_SECRET côté serveur).'
+      : 'Format attendu : uuid.signature (collez la clé complète, pas seulement l’UUID).';
     return res.status(401).json({
-      error: 'Clé de licence invalide',
-      valid: false
+      error: `Clé de licence invalide. ${formatHint}`,
+      valid: false,
     });
   }
 

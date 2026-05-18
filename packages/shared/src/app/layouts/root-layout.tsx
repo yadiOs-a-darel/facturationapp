@@ -1,7 +1,10 @@
 import { createRootRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Toaster } from "sonner";
+import { UnavailablePage } from "../pages/UnavailablePage";
 import { I18nProvider } from "../../lib/i18n";
 import { ThemeProvider } from "../../lib/theme";
+
+const hasToken = () => typeof window !== "undefined" && !!localStorage.getItem("gestfacturation_token");
 
 export const rootRoute = createRootRoute({
   component: () => (
@@ -16,8 +19,9 @@ export const rootRoute = createRootRoute({
   ),
   beforeLoad: async ({ location }) => {
     // Rediriger la racine vers la page de licence si pas authentifié
-    if (location.pathname === "/") {
+    if (location.pathname === "/" && !hasToken()) {
       throw redirect({ to: "/auth/license" });
     }
   },
+  notFoundComponent: UnavailablePage,
 });

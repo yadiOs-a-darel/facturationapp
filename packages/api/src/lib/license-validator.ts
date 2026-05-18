@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 
-const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-license-secret-change-me';
+function getLicenseSecret(): string {
+  return process.env.LICENSE_SECRET || 'dev-license-secret-change-me';
+}
 
 /**
  * Génère une clé de licence signée avec HMAC-SHA256
@@ -9,7 +11,7 @@ const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-license-secret-change-
 export function generateLicenseKey(): string {
   const uuid = crypto.randomUUID();
   const signature = crypto
-    .createHmac('sha256', LICENSE_SECRET)
+    .createHmac('sha256', getLicenseSecret())
     .update(uuid)
     .digest('hex');
 
@@ -40,15 +42,22 @@ export function validateLicenseKey(licenseKey: string): boolean {
 
   // Recalculer la signature
   const expectedSignature = crypto
-    .createHmac('sha256', LICENSE_SECRET)
+    .createHmac('sha256', getLicenseSecret())
     .update(uuid)
     .digest('hex');
 
-  // Comparer les signatures (constant-time comparison)
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
+  if (signature.length !== expectedSignature.length) {
+    return false;
+  }
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex'),
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

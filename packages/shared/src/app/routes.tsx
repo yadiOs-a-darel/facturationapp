@@ -3,22 +3,23 @@ import { createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterTenantPage } from "../features/auth/pages/RegisterTenantPage";
 import { LicensePage } from "../features/auth/pages/LicensePage";
-import { getSession } from "../features/auth/api/client";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { CustomersPage } from "../features/customers/pages/CustomersPage";
 import { ProductsPage } from "../features/products/pages/ProductsPage";
 import { InvoicesPage } from "../features/invoices/pages/InvoicesPage";
 import { StockPage } from "../features/stock/pages/StockPage";
+import { UnavailablePage } from "./pages/UnavailablePage";
 import { protectedLayout } from "./layouts/protected-layout";
 import { rootRoute } from "./layouts/root-layout";
+
+const hasToken = () => typeof window !== 'undefined' && !!localStorage.getItem("gestfacturation_token");
 
 const licenseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth/license",
   component: LicensePage,
   beforeLoad: async () => {
-    const result = await getSession();
-    if (result.data?.user) {
+    if (hasToken()) {
       throw redirect({ to: "/" });
     }
   },
@@ -32,8 +33,7 @@ const loginRoute = createRoute({
     redirect: (search.redirect as string) || undefined,
   }),
   beforeLoad: async () => {
-    const result = await getSession();
-    if (result.data?.user) {
+    if (hasToken()) {
       throw redirect({ to: "/" });
     }
   },
@@ -44,8 +44,7 @@ const registerTenantRoute = createRoute({
   path: "/auth/register-tenant",
   component: RegisterTenantPage,
   beforeLoad: async () => {
-    const result = await getSession();
-    if (result.data?.user) {
+    if (hasToken()) {
       throw redirect({ to: "/" });
     }
   },
@@ -100,5 +99,6 @@ export function createAppRouter(queryClient: QueryClient) {
     context: {
       queryClient,
     },
+    defaultNotFoundComponent: UnavailablePage,
   });
 }
