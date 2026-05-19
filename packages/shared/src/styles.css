@@ -297,3 +297,102 @@ button {
 .animate-row-highlight {
   animation: row-highlight-fade 2s ease-out forwards;
 }
+
+/* ===========================
+   Factures — thème nuit (écran)
+   =========================== */
+.invoice-form .invoice-field,
+.invoice-form select,
+.invoice-form input[type="date"] {
+  color-scheme: dark;
+}
+
+.invoice-form input:not([type="radio"]):not([type="checkbox"]):not([type="date"]),
+.invoice-form textarea {
+  background-color: color-mix(in oklch, var(--muted) 75%, transparent);
+  border-color: color-mix(in oklch, var(--border) 85%, var(--primary) 15%);
+  box-shadow: inset 0 1px 2px color-mix(in oklch, black 25%, transparent);
+}
+
+.invoice-form input:not([type="radio"]):not([type="checkbox"]):focus-visible,
+.invoice-form textarea:focus-visible {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  --tw-ring-color: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.invoice-form select option {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
+
+.invoice-document {
+  background: linear-gradient(
+    165deg,
+    color-mix(in oklch, var(--card) 92%, var(--primary) 8%) 0%,
+    color-mix(in oklch, var(--muted) 85%, black 15%) 48%,
+    color-mix(in oklch, var(--background) 90%, var(--primary) 10%) 100%
+  );
+  color: var(--foreground);
+  border: 1px solid color-mix(in oklch, var(--border) 80%, var(--primary) 20%);
+  box-shadow:
+    0 4px 24px color-mix(in oklch, black 35%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+
+.invoice-document .invoice-doc-header {
+  border-bottom-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.invoice-document .invoice-doc-card {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  border-color: color-mix(in oklch, var(--border) 70%, var(--primary) 30%);
+}
+
+.invoice-document .invoice-doc-table thead tr {
+  background: color-mix(in oklch, var(--primary) 18%, var(--muted));
+  border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+}
+
+.invoice-document .invoice-doc-table tbody tr {
+  border-color: color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+.invoice-document .invoice-doc-table tbody tr:hover {
+  background: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.invoice-document .invoice-doc-totals {
+  background: color-mix(in oklch, var(--card) 70%, var(--primary) 30%);
+  border: 1px solid color-mix(in oklch, var(--primary) 30%, var(--border));
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+
+.invoice-document .invoice-doc-title {
+  color: color-mix(in oklch, var(--primary) 70%, var(--foreground));
+  letter-spacing: 0.06em;
+}
+
+@media print {
+  .invoice-document {
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-document .invoice-doc-card,
+  .invoice-document .invoice-doc-table thead tr,
+  .invoice-document .invoice-doc-totals {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .invoice-document .invoice-doc-title {
+    color: #0f172a !important;
+  }
+
+  .invoice-document .invoice-doc-table tbody tr:hover {
+    background: transparent !important;
+  }
+}

@@ -119,7 +119,6 @@ export function AppSidebar({
               >
                 <Bell className="!size-4" strokeWidth={1.5} />
               </SidebarMenuButton>
-              <LanguageSwitcher />
               <ThemeSwitcher />
             </div>
         <SidebarMenu>

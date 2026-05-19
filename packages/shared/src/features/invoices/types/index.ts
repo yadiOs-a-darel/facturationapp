@@ -5,7 +5,7 @@ export interface Invoice {
   id: string;
   number: string;
   type: InvoiceType;
-  customerId: string;
+  customerId?: string | null;
   issueDate: string;
   dueDate?: string | null;
   status: InvoiceStatus;
@@ -51,6 +51,7 @@ export type InvoiceUpsertPayload = Partial<Invoice> & {
   customerId?: string;
   items?: InvoiceItem[];
   markAsPaid?: boolean;
+  initialPaymentAmount?: number;
   paymentRef?: string | null;
   isBackdated?: boolean;
 };

@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
+import { resolveInvoiceStatus } from '../invoices/invoices.helpers';
 
 const createPaymentSchema = z.object({
   amount: z.number().positive(),
@@ -76,12 +77,12 @@ export async function createPaymentHandler(req: AuthenticatedRequest, res: Respo
     const invoiceTotal = parseFloat(String(invoice.totalTTC)) || 0;
     const newPaidAmount = currentPaid + amount;
 
-    let newStatus = invoice.status;
-    if (newPaidAmount >= invoiceTotal) {
-      newStatus = 'PAID';
-    } else if (newPaidAmount > 0) {
-      newStatus = 'PARTIAL';
-    }
+    const newStatus = resolveInvoiceStatus({
+      paidAmount: newPaidAmount,
+      totalTTC: invoiceTotal,
+      dueDate: invoice.dueDate,
+      now,
+    });
 
     await tx
       .update(schema.invoices)

@@ -180,3 +180,33 @@ export async function restoreStockForItems(
 }
 
 export const EDITABLE_INVOICE_STATUSES = ['DRAFT', 'SENT', 'PARTIAL', 'OVERDUE'] as const;
+
+const EPSILON = 0.01;
+
+export function isPastDue(dueDate: Date | string | null | undefined, now = new Date()): boolean {
+  if (!dueDate) return false;
+  const due = typeof dueDate === 'string' ? new Date(dueDate) : dueDate;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const dueDay = new Date(due);
+  dueDay.setHours(0, 0, 0, 0);
+  return dueDay < today;
+}
+
+export function resolveInvoiceStatus(params: {
+  paidAmount: number;
+  totalTTC: number;
+  dueDate?: Date | string | null;
+  now?: Date;
+}): string {
+  const { paidAmount, totalTTC, dueDate, now = new Date() } = params;
+  const remaining = Math.max(0, totalTTC - paidAmount);
+  const overdue = remaining > EPSILON && isPastDue(dueDate, now);
+
+  if (totalTTC <= EPSILON) {
+    return paidAmount > EPSILON ? 'PAID' : 'SENT';
+  }
+  if (paidAmount >= totalTTC - EPSILON) return 'PAID';
+  if (paidAmount > EPSILON) return overdue ? 'OVERDUE' : 'PARTIAL';
+  return overdue ? 'OVERDUE' : 'SENT';
+}

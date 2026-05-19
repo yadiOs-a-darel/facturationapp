@@ -10,6 +10,7 @@ import {
   insertInvoiceItems,
   restoreStockForItems,
   EDITABLE_INVOICE_STATUSES,
+  resolveInvoiceStatus,
   type InvoiceItemInput,
 } from './invoices.helpers';
 
@@ -54,9 +55,36 @@ const invoicePayloadSchema = z.object({
   paymentMethod: z.string().optional().nullable(),
   paymentRef: z.string().optional().nullable(),
   markAsPaid: z.boolean().optional().default(false),
+  initialPaymentAmount: z.number().nonnegative().optional().default(0),
   isBackdated: z.boolean().optional().default(false),
   items: z.array(invoiceItemSchema).min(1, 'Au moins une ligne est requise'),
 });
+
+function enrichInvoiceRow<T extends { paidAmount: unknown; totalTTC: unknown; dueDate?: Date | null; status: string }>(
+  row: T,
+  now = new Date(),
+): T & { status: string } {
+  return {
+    ...row,
+    status: resolveInvoiceStatus({
+      paidAmount: parseFloat(String(row.paidAmount)) || 0,
+      totalTTC: parseFloat(String(row.totalTTC)) || 0,
+      dueDate: row.dueDate,
+      now,
+    }),
+  };
+}
+
+function resolveInitialPaymentAmount(
+  payload: { markAsPaid?: boolean; initialPaymentAmount?: number },
+  totalTTC: number,
+): number {
+  let amount = payload.initialPaymentAmount ?? 0;
+  if (payload.markAsPaid && amount <= 0) {
+    amount = totalTTC;
+  }
+  return Math.round(amount * 100) / 100;
+}
 
 async function generateInvoiceNumber(tenantId: string) {
   const documentType = 'INVOICE';
@@ -107,44 +135,6 @@ async function generateInvoiceNumber(tenantId: string) {
   return `${prefix}${seq}`;
 }
 
-async function resolveCustomerId(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  tenantId: string,
-  customerId: string | undefined,
-  now: Date,
-) {
-  if (customerId?.trim()) return customerId;
-
-  const defaultCustomerCode = 'WALKIN';
-  let [defaultCustomer] = await tx
-    .select()
-    .from(schema.customers)
-    .where(
-      and(
-        eq(schema.customers.tenantId, tenantId),
-        eq(schema.customers.code, defaultCustomerCode),
-      ),
-    )
-    .limit(1);
-
-  if (!defaultCustomer) {
-    [defaultCustomer] = await tx
-      .insert(schema.customers)
-      .values({
-        id: randomUUID(),
-        tenantId,
-        code: defaultCustomerCode,
-        type: 'RETAIL',
-        denomination: 'Client Lambda',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-  }
-
-  return defaultCustomer.id;
-}
-
 function isDateInPast(dateStr: string | null): boolean {
   if (!dateStr) return false;
   const issue = new Date(dateStr);
@@ -191,8 +181,9 @@ export async function listInvoices(req: AuthenticatedRequest, res: Response) {
   const total = totalRows.length;
   const totalPages = Math.ceil(total / limit);
 
+  const now = new Date();
   return res.json({
-    data: rows,
+    data: rows.map((row) => enrichInvoiceRow(row, now)),
     meta: { total, page, perPage: limit, totalPages },
   });
 }
@@ -212,11 +203,15 @@ export async function getInvoiceById(req: AuthenticatedRequest, res: Response) {
     return res.status(404).json({ error: 'Facture introuvable' });
   }
 
-  const [customer] = await db
-    .select()
-    .from(schema.customers)
-    .where(and(eq(schema.customers.id, invoice.customerId), eq(schema.customers.tenantId, tenantId)))
-    .limit(1);
+  const [customer] = invoice.customerId
+    ? await db
+        .select()
+        .from(schema.customers)
+        .where(
+          and(eq(schema.customers.id, invoice.customerId), eq(schema.customers.tenantId, tenantId)),
+        )
+        .limit(1)
+    : [undefined];
 
   const [tenant] = await db
     .select()
@@ -234,7 +229,8 @@ export async function getInvoiceById(req: AuthenticatedRequest, res: Response) {
     .from(schema.payments)
     .where(eq(schema.payments.invoiceId, id));
 
-  return res.json({ ...invoice, customer, tenant, items, payments });
+  const enriched = enrichInvoiceRow(invoice);
+  return res.json({ ...enriched, customer: customer ?? null, tenant, items, payments });
 }
 
 export async function createInvoiceHandler(req: AuthenticatedRequest, res: Response) {
@@ -249,25 +245,29 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
 
   const payload = parse.data;
 
-  if (payload.markAsPaid && !payload.paymentMethod) {
-    return res.status(400).json({ error: 'Le mode de paiement est requis pour valider le paiement' });
-  }
-
   const number = await generateInvoiceNumber(tenantId);
   const { subtotalHT, taxAmount, totalTTC } = computeTotals(payload.items as InvoiceItemInput[]);
+  const paidAmount = resolveInitialPaymentAmount(payload, totalTTC);
+
+  if (paidAmount > 0 && !payload.paymentMethod) {
+    return res.status(400).json({ error: 'Le mode de paiement est requis lors d\'un paiement' });
+  }
+  if (paidAmount > totalTTC + 0.01) {
+    return res.status(400).json({ error: 'Le montant versé ne peut pas dépasser le total TTC' });
+  }
 
   try {
     let createdInvoice: Record<string, unknown>;
     const now = new Date();
     const issueDate = payload.issueDate ? new Date(payload.issueDate) : now;
+    const dueDate = payload.dueDate ? new Date(payload.dueDate) : null;
     const backdated =
       payload.isBackdated || (payload.issueDate ? isDateInPast(payload.issueDate) : false);
 
-    const status = payload.markAsPaid ? 'PAID' : 'SENT';
-    const paidAmount = payload.markAsPaid ? totalTTC : 0;
+    const status = resolveInvoiceStatus({ paidAmount, totalTTC, dueDate, now });
 
     await db.transaction(async (tx) => {
-      const customerIdToUse = await resolveCustomerId(tx, tenantId, payload.customerId, now);
+      const customerIdToUse = payload.customerId?.trim() || null;
       const invoiceId = randomUUID();
 
       await tx.insert(schema.invoices).values({
@@ -278,7 +278,7 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         number,
         type: payload.type,
         issueDate,
-        dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
+        dueDate,
         status,
         subtotalHT: String(subtotalHT.toFixed(2)),
         discountAmount: String((payload.discountAmount ?? 0).toFixed(2)),
@@ -288,9 +288,9 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         paidAmount: String(paidAmount.toFixed(2)),
         notes: payload.notes ?? null,
         terms: payload.terms ?? null,
-        paymentMethod: payload.paymentMethod ?? null,
-        paymentDate: payload.markAsPaid ? now : null,
-        paymentRef: payload.paymentRef ?? null,
+        paymentMethod: paidAmount > 0 ? payload.paymentMethod ?? null : null,
+        paymentDate: paidAmount > 0 ? now : null,
+        paymentRef: paidAmount > 0 ? payload.paymentRef ?? null : null,
         isBackdated: backdated,
         createdAt: now,
         updatedAt: now,
@@ -305,11 +305,11 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         now,
       });
 
-      if (payload.markAsPaid && payload.paymentMethod) {
+      if (paidAmount > 0 && payload.paymentMethod) {
         await tx.insert(schema.payments).values({
           id: randomUUID(),
           invoiceId,
-          amount: String(totalTTC.toFixed(2)),
+          amount: String(paidAmount.toFixed(2)),
           method: payload.paymentMethod,
           reference: payload.paymentRef ?? null,
           date: now,
@@ -333,9 +333,8 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
     });
 
     return res.status(201).json(createdInvoice);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Impossible de créer la facture';
-    return res.status(400).json({ error: message });
+  } catch {
+    return res.status(400).json({ error: 'Impossible de créer la facture' });
   }
 }
 
@@ -417,7 +416,10 @@ export async function updateInvoiceHandler(req: AuthenticatedRequest, res: Respo
       await tx
         .update(schema.invoices)
         .set({
-          customerId: payload.customerId ?? invoice.customerId,
+          customerId:
+            payload.customerId !== undefined
+              ? payload.customerId?.trim() || null
+              : invoice.customerId,
           type: payload.type ?? invoice.type,
           issueDate,
           dueDate:
@@ -453,9 +455,8 @@ export async function updateInvoiceHandler(req: AuthenticatedRequest, res: Respo
       .where(eq(schema.invoiceItems.invoiceId, id));
 
     return res.json({ ...updated, items });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Impossible de mettre à jour la facture';
-    return res.status(400).json({ error: message });
+  } catch {
+    return res.status(400).json({ error: 'Impossible de mettre à jour la facture' });
   }
 }
 
@@ -504,9 +505,8 @@ export async function cancelInvoiceHandler(req: AuthenticatedRequest, res: Respo
       .limit(1);
 
     return res.json(updated);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Impossible d\'annuler la facture';
-    return res.status(400).json({ error: message });
+  } catch {
+    return res.status(400).json({ error: 'Impossible d\'annuler la facture' });
   }
 }
 
@@ -555,8 +555,7 @@ export async function deleteInvoiceHandler(req: AuthenticatedRequest, res: Respo
     });
 
     return res.status(204).send();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Impossible de supprimer la facture';
-    return res.status(400).json({ error: message });
+  } catch {
+    return res.status(400).json({ error: 'Impossible de supprimer la facture' });
   }
 }
