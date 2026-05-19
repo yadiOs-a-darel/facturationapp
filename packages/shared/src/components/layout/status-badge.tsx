@@ -14,6 +14,7 @@ const statusConfig: Record<
 > = {
   draft: { label: "Brouillon", variant: "secondary" },
   sent: { label: "Envoyée", variant: "info" },
+  partial: { label: "Partiellement payée", variant: "warning" },
   paid: { label: "Payée", variant: "success" },
   overdue: { label: "En retard", variant: "destructive" },
   cancelled: { label: "Annulée", variant: "secondary" },

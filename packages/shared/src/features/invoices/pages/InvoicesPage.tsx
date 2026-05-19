@@ -7,6 +7,7 @@ import {
   useInvoice,
   useUpdateInvoice,
   useCancelInvoice,
+  useRecordPayment,
 } from "../hooks/use-invoices";
 import { InvoicePrintView } from "../components/InvoicePrintView";
 import { printInvoice, downloadInvoicePdf, invoiceDetailToPrintData } from "../lib/print-invoice";
@@ -60,6 +61,19 @@ import type { InvoiceStatus } from "../types";
 import { fetchInvoice } from "../api/client";
 import { usePageTitle } from "../../../hooks/use-page-title";
 import { formatCurrency } from "../../../lib/format";
+import {
+  computeFormTotalTTC,
+  getRemainingAmount,
+  resolveInvoiceStatus,
+} from "../lib/invoice-status";
+import {
+  invoiceDateClass,
+  invoiceItemCardClass,
+  invoiceItemsSectionClass,
+  invoicePaymentPanelClass,
+  invoiceSelectClass,
+  invoiceSummaryClass,
+} from "../lib/invoice-ui";
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("fr-FR", {
@@ -91,6 +105,12 @@ export function InvoicesPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const { data: invoiceData, isLoading: invoiceLoading } = useInvoice(viewInvoiceId ?? undefined);
+  const recordPaymentMutation = useRecordPayment(viewInvoiceId ?? "");
+  const [paymentForm, setPaymentForm] = useState({
+    amount: 0,
+    methodCode: "",
+    reference: "",
+  });
   type InvoiceFormItem = {
     productId?: string;
     description: string;
@@ -100,14 +120,19 @@ export function InvoicesPage() {
     taxRate: number;
   };
 
+  type PaymentTiming = "later" | "now";
+  type PaymentPreset = "full" | "half" | "custom";
+
   const emptyForm = () => ({
     customerId: "",
     type: "INVOICE" as InvoiceType,
     issueDate: new Date().toISOString().split("T")[0],
     dueDate: "",
+    paymentTiming: "later" as PaymentTiming,
+    paymentPreset: "full" as PaymentPreset,
+    initialPaymentAmount: 0,
     paymentMethod: "",
     paymentRef: "",
-    markAsPaid: false,
     isBackdated: false,
     notes: "",
     terms: "",
@@ -121,6 +146,15 @@ export function InvoicesPage() {
       setViewInvoiceId(null);
     }
   }, [viewDialogOpen]);
+
+  useEffect(() => {
+    if (!invoiceData) return;
+    const remaining = getRemainingAmount(
+      Number(invoiceData.totalTTC),
+      Number(invoiceData.paidAmount),
+    );
+    setPaymentForm({ amount: remaining, methodCode: "", reference: "" });
+  }, [invoiceData?.id, invoiceData?.paidAmount, invoiceData?.totalTTC]);
 
   useEffect(() => {
     if (dialogOpen && !editingInvoiceId) {
@@ -143,19 +177,39 @@ export function InvoicesPage() {
       !search ||
       inv.number.toLowerCase().includes(search.toLowerCase()) ||
       getCustomerName(inv.customerId).toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = !statusFilter || inv.status === statusFilter;
+    const matchesStatus =
+      !statusFilter || getInvoiceDisplayStatus(inv) === statusFilter;
     const matchesType = !typeFilter || inv.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
   }) ?? [];
+
+  const formTotalTTC = computeFormTotalTTC(
+    form.items.filter((item) => item.description.trim().length > 0),
+  );
+
+  const effectivePaymentAmount =
+    form.paymentTiming === "later"
+      ? 0
+      : form.paymentPreset === "full"
+        ? formTotalTTC
+        : form.paymentPreset === "half"
+          ? Math.round((formTotalTTC / 2) * 100) / 100
+          : form.initialPaymentAmount;
+
+  const previewStatus = resolveInvoiceStatus({
+    paidAmount: effectivePaymentAmount,
+    totalTTC: formTotalTTC,
+    dueDate: form.dueDate || null,
+  });
 
   const buildPayload = (): InvoiceUpsertPayload => ({
     customerId: form.customerId || undefined,
     type: form.type,
     issueDate: form.issueDate,
     dueDate: form.dueDate || null,
-    paymentMethod: form.markAsPaid ? form.paymentMethod || null : form.paymentMethod || null,
-    paymentRef: form.paymentRef.trim() || null,
-    markAsPaid: editingInvoiceId ? undefined : form.markAsPaid,
+    paymentMethod: effectivePaymentAmount > 0 ? form.paymentMethod || null : null,
+    paymentRef: effectivePaymentAmount > 0 ? form.paymentRef.trim() || null : null,
+    initialPaymentAmount: editingInvoiceId ? undefined : effectivePaymentAmount,
     isBackdated: form.isBackdated,
     notes: form.notes.trim() || null,
     terms: form.terms.trim() || null,
@@ -176,8 +230,17 @@ export function InvoicesPage() {
       return;
     }
 
-    if (!editingInvoiceId && form.markAsPaid && !form.paymentMethod) {
-      toast.error("Sélectionnez un mode de paiement pour valider le paiement");
+    if (!editingInvoiceId && effectivePaymentAmount > 0 && !form.paymentMethod) {
+      toast.error("Sélectionnez un mode de paiement pour enregistrer le versement");
+      return;
+    }
+
+    if (
+      !editingInvoiceId &&
+      effectivePaymentAmount > 0 &&
+      effectivePaymentAmount > formTotalTTC + 0.01
+    ) {
+      toast.error("Le montant versé ne peut pas dépasser le total TTC");
       return;
     }
 
@@ -201,10 +264,24 @@ export function InvoicesPage() {
       },
     });
   };
-  const getCustomerName = (customerId: string) => {
+  const getCustomerName = (customerId?: string | null) => {
+    if (!customerId) return "Sans client";
     const customer = customersList.find((c) => c.id === customerId);
-    return customer?.denomination || "-";
+    if (customer?.code === "WALKIN") return "Sans client";
+    return customer?.denomination || "Sans client";
   };
+
+  const getInvoiceDisplayStatus = (inv: {
+    status: string;
+    paidAmount: number;
+    totalTTC: number;
+    dueDate?: string | null;
+  }) =>
+    resolveInvoiceStatus({
+      paidAmount: Number(inv.paidAmount),
+      totalTTC: Number(inv.totalTTC),
+      dueDate: inv.dueDate,
+    });
 
   const getProductName = (productId: string | undefined) => {
     if (!productId) return "";
@@ -308,16 +385,58 @@ export function InvoicesPage() {
       key: "status",
       label: "Statut",
       sortable: true,
-      render: (value: string) => <StatusBadge status={value} />,
+      render: (_: unknown, row: InvoicesRow) => {
+        const displayStatus = getInvoiceDisplayStatus(row);
+        return (
+          <StatusBadge
+            status={displayStatus}
+            labels={{
+              DRAFT: t("invoices.status.DRAFT"),
+              SENT: t("invoices.status.SENT"),
+              PARTIAL: t("invoices.status.PARTIAL"),
+              PAID: t("invoices.status.PAID"),
+              OVERDUE: t("invoices.status.OVERDUE"),
+              CANCELLED: t("invoices.status.CANCELLED"),
+            }}
+          />
+        );
+      },
+    },
+    {
+      key: "paidAmount",
+      label: "Paiement",
+      align: "right",
+      render: (_: unknown, row: InvoicesRow) => {
+        const paid = Number(row.paidAmount);
+        const total = Number(row.totalTTC);
+        const remaining = getRemainingAmount(total, paid);
+        if (paid >= total - 0.01) {
+          return <span className="text-sm text-green-600 font-medium">Payé</span>;
+        }
+        if (paid > 0) {
+          return (
+            <span className="text-sm text-amber-600">
+              Reste {formatCurrency(remaining)}
+            </span>
+          );
+        }
+        const status = getInvoiceDisplayStatus(row);
+        if (status === "OVERDUE") {
+          return <span className="text-sm text-destructive font-medium">Impayée</span>;
+        }
+        return <span className="text-sm text-muted-foreground">Impayée</span>;
+      },
     },
   ];
 
   const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
-      DRAFT: "Brouillon",
-      SENT: "Envoyée",
-      PAID: "Payée",
-      OVERDUE: "En retard",
+      DRAFT: t("invoices.status.DRAFT"),
+      SENT: t("invoices.status.SENT"),
+      PARTIAL: t("invoices.status.PARTIAL"),
+      PAID: t("invoices.status.PAID"),
+      OVERDUE: t("invoices.status.OVERDUE"),
+      CANCELLED: t("invoices.status.CANCELLED"),
     };
     return labels[status] || status;
   };
@@ -357,13 +476,15 @@ export function InvoicesPage() {
         return;
       }
       setForm({
-        customerId: inv.customerId,
+        customerId: inv.customerId && inv.customerId !== "" ? inv.customerId : "",
         type: inv.type,
         issueDate: inv.issueDate.split("T")[0],
         dueDate: inv.dueDate ? inv.dueDate.split("T")[0] : "",
+        paymentTiming: "later",
+        paymentPreset: "full",
+        initialPaymentAmount: 0,
         paymentMethod: inv.paymentMethod ?? "",
         paymentRef: inv.paymentRef ?? "",
-        markAsPaid: false,
         isBackdated: inv.isBackdated,
         notes: inv.notes ?? "",
         terms: inv.terms ?? "",
@@ -432,10 +553,13 @@ export function InvoicesPage() {
                     Brouillon
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter("SENT")}>
-                    Envoyée
+                    {t("invoices.status.SENT")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("PARTIAL")}>
+                    {t("invoices.status.PARTIAL")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter("PAID")}>
-                    Payée
+                    {t("invoices.status.PAID")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter("OVERDUE")}>
                     En retard
@@ -534,22 +658,25 @@ export function InvoicesPage() {
           if (!open) setEditingInvoiceId(null);
         }}
       >
-        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto border-border/60 bg-card/95 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle>
               {editingInvoiceId ? "Modifier la facture" : t("invoices.add")}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-6 p-6">
+          <div className="invoice-form space-y-6 p-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t("invoices.customer")}</label>
+                <label className="text-sm font-medium">
+                  {t("invoices.customer")}{" "}
+                  <span className="text-muted-foreground font-normal">(facultatif)</span>
+                </label>
                 <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={invoiceSelectClass}
                   value={form.customerId}
                   onChange={(e) => setForm({ ...form, customerId: e.target.value })}
                 >
-                  <option value="">{t("invoices.selectCustomer")}</option>
+                  <option value="">{t("invoices.noCustomer")}</option>
                   {customersList.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.denomination}
@@ -561,7 +688,7 @@ export function InvoicesPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("invoices.type")}</label>
                 <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={invoiceSelectClass}
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value as InvoiceType })}
                 >
@@ -576,7 +703,7 @@ export function InvoicesPage() {
                 <label className="text-sm font-medium">{t("invoices.date")}</label>
                 <input
                   type="date"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={invoiceSelectClass}
                   value={form.issueDate}
                   onChange={(e) => setForm({ ...form, issueDate: e.target.value })}
                 />
@@ -586,45 +713,151 @@ export function InvoicesPage() {
                 <label className="text-sm font-medium">{t("invoices.dueDate")}</label>
                 <input
                   type="date"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={invoiceSelectClass}
                   value={form.dueDate}
                   onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 />
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium">{t("invoices.paymentMethod")}</label>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={form.paymentMethod}
-                  onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                >
-                  <option value="">{t("invoices.selectPaymentMethod")}</option>
-                  {paymentMethodsList.map((pm) => (
-                    <option key={pm.id} value={pm.code}>
-                      {pm.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {!editingInvoiceId && (
-                <div className="md:col-span-2 space-y-4 rounded-lg border p-4 bg-muted/20">
-                  <p className="text-sm font-medium">Paiement</p>
+                <div className={invoicePaymentPanelClass}>
+                  <p className="text-sm font-medium">{t("invoices.paymentSection")}</p>
                   <div className="flex flex-col gap-3">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="paymentTiming" checked={!form.markAsPaid} onChange={() => setForm({ ...form, markAsPaid: false })} />
-                      Laisser impayée (règlement ultérieur)
+                      <input type="radio" name="paymentTiming" checked={form.paymentTiming === "later"} onChange={() => setForm({ ...form, paymentTiming: "later" })} />
+                      {t("invoices.payLater")}
                     </label>
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="paymentTiming" checked={form.markAsPaid} onChange={() => setForm({ ...form, markAsPaid: true })} />
-                      Valider le paiement maintenant
+                      <input type="radio" name="paymentTiming" checked={form.paymentTiming === "now"} onChange={() => setForm({ ...form, paymentTiming: "now", paymentPreset: "full" })} />
+                      {t("invoices.payNow")}
                     </label>
                   </div>
-                  {form.markAsPaid && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Référence de paiement</label>
-                      <Input value={form.paymentRef} onChange={(e) => setForm({ ...form, paymentRef: e.target.value })} placeholder="N° chèque, transaction..." />
+                  {form.paymentTiming === "now" && (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={form.paymentPreset === "full" ? "default" : "outline"}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              paymentPreset: "full",
+                              initialPaymentAmount: formTotalTTC,
+                            })
+                          }
+                        >
+                          {t("invoices.payFull")} ({formatCurrency(formTotalTTC)})
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={form.paymentPreset === "half" ? "default" : "outline"}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              paymentPreset: "half",
+                              initialPaymentAmount:
+                                Math.round((formTotalTTC / 2) * 100) / 100,
+                            })
+                          }
+                        >
+                          {t("invoices.payHalf")}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={form.paymentPreset === "custom" ? "default" : "outline"}
+                          onClick={() => setForm({ ...form, paymentPreset: "custom" })}
+                        >
+                          {t("invoices.payCustom")}
+                        </Button>
+                      </div>
+                      {form.paymentPreset === "custom" && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            {t("invoices.paymentAmount")}
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            max={formTotalTTC}
+                            value={form.initialPaymentAmount}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                initialPaymentAmount: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("invoices.paymentMethod")}
+                        </label>
+                        <select
+                          className={invoiceSelectClass}
+                          value={form.paymentMethod}
+                          onChange={(e) =>
+                            setForm({ ...form, paymentMethod: e.target.value })
+                          }
+                        >
+                          <option value="">{t("invoices.selectPaymentMethod")}</option>
+                          {paymentMethodsList.map((pm) => (
+                            <option key={pm.id} value={pm.code}>
+                              {pm.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("invoices.paymentRef")}
+                        </label>
+                        <Input
+                          value={form.paymentRef}
+                          onChange={(e) =>
+                            setForm({ ...form, paymentRef: e.target.value })
+                          }
+                          placeholder="N° chèque, transaction..."
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {formTotalTTC > 0 && (
+                    <div className={invoiceSummaryClass}>
+                      <div className="flex justify-between">
+                        <span>{t("invoices.totalTTC")}</span>
+                        <span className="font-medium">{formatCurrency(formTotalTTC)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("invoices.paidAmount")}</span>
+                        <span className="font-medium">
+                          {formatCurrency(effectivePaymentAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("invoices.remainingAmount")}</span>
+                        <span className="font-medium">
+                          {formatCurrency(
+                            getRemainingAmount(formTotalTTC, effectivePaymentAmount),
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t">
+                        <span>{t("invoices.status")}</span>
+                        <StatusBadge
+                          status={previewStatus}
+                          labels={{
+                            SENT: t("invoices.status.SENT"),
+                            PARTIAL: t("invoices.status.PARTIAL"),
+                            PAID: t("invoices.status.PAID"),
+                            OVERDUE: t("invoices.status.OVERDUE"),
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -658,9 +891,9 @@ export function InvoicesPage() {
             </div>
 
             {/* Items Section */}
-            <div className="border rounded p-4">
+            <div className={invoiceItemsSectionClass}>
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold">{t("invoices.items")}</h3>
+                <h3 className="text-lg font-semibold text-primary/90">{t("invoices.items")}</h3>
                 <Button variant="outline" size="sm" onClick={addItem}>
                   <Plus className="h-4 w-4 mr-2" />
                   {t("invoices.addItem")}
@@ -668,7 +901,7 @@ export function InvoicesPage() {
               </div>
 
               {form.items.map((item, index) => (
-                <div key={index} className="border rounded p-4 mb-4">
+                <div key={index} className={invoiceItemCardClass}>
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-base font-medium">
                       {t("invoices.item")} #{index + 1}
@@ -687,7 +920,7 @@ export function InvoicesPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">{t("common.product")}</label>
                       <select
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className={invoiceSelectClass}
                         value={item.productId ?? ""}
                         onChange={(e) => handleProductSelect(index, e.target.value)}
                       >
@@ -799,9 +1032,9 @@ export function InvoicesPage() {
 
       {/* View Invoice Dialog — print-ready */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-4xl sm:max-h-[95vh] overflow-y-auto p-0">
-          <DialogHeader className="px-6 pt-6 print:hidden">
-            <DialogTitle>{t("invoices.view")}</DialogTitle>
+        <DialogContent className="sm:max-w-4xl sm:max-h-[95vh] overflow-y-auto p-0 border-border/60 bg-background/95">
+          <DialogHeader className="px-6 pt-6 print:hidden border-b border-border/40 bg-muted/30">
+            <DialogTitle className="text-primary/90">{t("invoices.view")}</DialogTitle>
           </DialogHeader>
           {invoiceLoading ? (
             <div className="text-center py-12 text-muted-foreground">{t("common.loading")}</div>
@@ -815,28 +1048,94 @@ export function InvoicesPage() {
                     : undefined
                 }
               />
+              {getRemainingAmount(
+                Number(invoiceData.totalTTC),
+                Number(invoiceData.paidAmount),
+              ) > 0.01 &&
+                invoiceData.status !== "CANCELLED" && (
+                  <div className="invoice-form px-6 pb-4 print:hidden space-y-3 border-t border-border/50 bg-muted/20 pt-4">
+                    <p className="text-sm font-medium">{t("invoices.recordPayment")}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          {t("invoices.paymentAmount")}
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={paymentForm.amount}
+                          onChange={(e) =>
+                            setPaymentForm({
+                              ...paymentForm,
+                              amount: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          {t("invoices.paymentMethod")}
+                        </label>
+                        <select
+                          className={invoiceSelectClass}
+                          value={paymentForm.methodCode}
+                          onChange={(e) =>
+                            setPaymentForm({ ...paymentForm, methodCode: e.target.value })
+                          }
+                        >
+                          <option value="">{t("invoices.selectPaymentMethod")}</option>
+                          {paymentMethodsList.map((pm) => (
+                            <option key={pm.id} value={pm.code}>
+                              {pm.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          {t("invoices.paymentRef")}
+                        </label>
+                        <Input
+                          value={paymentForm.reference}
+                          onChange={(e) =>
+                            setPaymentForm({ ...paymentForm, reference: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={recordPaymentMutation.isPending}
+                      onClick={() => {
+                        if (!paymentForm.methodCode) {
+                          toast.error(t("invoices.selectPaymentMethod"));
+                          return;
+                        }
+                        if (paymentForm.amount <= 0) {
+                          toast.error(t("invoices.paymentAmountInvalid"));
+                          return;
+                        }
+                        recordPaymentMutation.mutate({
+                          amount: paymentForm.amount,
+                          methodCode: paymentForm.methodCode,
+                          reference: paymentForm.reference.trim() || null,
+                        });
+                      }}
+                    >
+                      {t("invoices.recordPayment")}
+                    </Button>
+                  </div>
+                )}
               <DialogFooter className="px-6 pb-6 print:hidden flex-wrap gap-2">
-                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
-                  {t("common.close")}
-                </Button>
                 <Button variant="outline" onClick={() => handlePrintInvoice(invoiceData)}>
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimer
-                </Button>
-                <Button variant="outline" onClick={() => handleDownloadInvoice(invoiceData)}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Télécharger PDF
                 </Button>
                 {isInvoiceEditable(invoiceData.status) && (
                   <Button onClick={() => handleEditInvoice(invoiceData.id)}>
                     <Edit className="h-4 w-4 mr-2" />
                     {t("common.edit")}
-                  </Button>
-                )}
-                {invoiceData.status !== "CANCELLED" && (
-                  <Button variant="destructive" onClick={() => handleCancelInvoice(invoiceData.id)}>
-                    <Ban className="h-4 w-4 mr-2" />
-                    Annuler
                   </Button>
                 )}
               </DialogFooter>

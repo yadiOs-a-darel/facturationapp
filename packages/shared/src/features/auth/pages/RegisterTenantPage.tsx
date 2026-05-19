@@ -194,7 +194,15 @@ export function RegisterTenantPage() {
               {isLoading ? "Création en cours..." : "Créer le compte"}
             </Button>
           </form>
-
+            <p className="mt-6 text-sm text-muted-foreground text-center">
+              J'ai déjà un compte.{" "}
+              <Link
+                to="/auth/login"
+                className="font-medium text-primary hover:underline"
+              >
+                Se connecter
+              </Link>
+            </p>
           {!search.licenseKey && (
             <p className="mt-6 text-sm text-muted-foreground text-center">
               Vous devez valider votre licence avant de créer un compte.{" "}

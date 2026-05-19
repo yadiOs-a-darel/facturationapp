@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -44,27 +45,35 @@ export function LicensePage() {
                   <Input
                     id="licenseKey"
                     type="text"
-                    placeholder="uuid.signature-hex"
+                    placeholder="0123456789abcdef"
                     value={licenseKey}
                     onChange={(e) => setLicenseKey(e.target.value)}
                     disabled={isPending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Collez la clé complète fournie par l&apos;administrateur (UUID + point + signature),
-                    par ex. 550e8400-e29b-41d4-a716-446655440000.a1b2c3...
+                    Collez la clé complète fournie par votre fournisseur de licence
                   </p>
                 </div>
 
                 <Button type="submit" disabled={isPending || !licenseKey.trim()} className="w-full">
                   {isPending ? "Validation..." : "Valider la licence"}
                 </Button>
+                <p className="mt-6 text-sm text-muted-foreground text-center">
+                J'ai déjà une licence.{" "}
+                <Link
+                  to="/auth/login"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Se connecter
+                </Link>
+              </p>
               </form>
 
               <div className="mt-6 p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
                   Vous n'avez pas de clé de licence ?{" "}
                   <span className="text-foreground font-medium">
-                    Contactez l'administrateur
+                    Contactez votre fournisseur
                   </span>
                 </p>
               </div>

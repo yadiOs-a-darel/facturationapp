@@ -150,7 +150,7 @@ export const stockMovements = mysqlTable('stock_movements', {
 export const invoices = mysqlTable('invoices', {
   id: varchar('id', { length: 191 }).primaryKey(),
   tenantId: varchar('tenant_id', { length: 191 }).notNull(),
-  customerId: varchar('customer_id', { length: 191 }).notNull(),
+  customerId: varchar('customer_id', { length: 191 }),
   createdById: varchar('created_by_id', { length: 191 }),
   number: varchar('number', { length: 64 }).notNull(),
   type: varchar('type', { length: 32 }).default('INVOICE').notNull(),

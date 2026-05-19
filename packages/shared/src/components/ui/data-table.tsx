@@ -209,8 +209,10 @@ export function StatusBadge({
     failed: "destructive",
     draft: "secondary",
     sent: "info",
+    partial: "warning",
     paid: "success",
     overdue: "destructive",
+    cancelled: "secondary",
   };
 
   const label = labels?.[status] || status;

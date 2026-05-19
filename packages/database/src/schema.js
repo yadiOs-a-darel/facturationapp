@@ -132,7 +132,7 @@ exports.stockMovements = (0, mysql_core_1.mysqlTable)('stock_movements', {
 exports.invoices = (0, mysql_core_1.mysqlTable)('invoices', {
     id: (0, mysql_core_1.varchar)('id', { length: 191 }).primaryKey(),
     tenantId: (0, mysql_core_1.varchar)('tenant_id', { length: 191 }).notNull(),
-    customerId: (0, mysql_core_1.varchar)('customer_id', { length: 191 }).notNull(),
+    customerId: (0, mysql_core_1.varchar)('customer_id', { length: 191 }),
     createdById: (0, mysql_core_1.varchar)('created_by_id', { length: 191 }),
     number: (0, mysql_core_1.varchar)('number', { length: 64 }).notNull(),
     type: (0, mysql_core_1.varchar)('type', { length: 32 }).default('INVOICE').notNull(),
