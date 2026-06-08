@@ -1,6 +1,7 @@
 import { createRoute, Outlet, redirect } from "@tanstack/react-router";
 import { UnavailablePage } from "../pages/UnavailablePage";
 import { AppSidebar } from "../../components/layout/app-sidebar";
+import { TenantBrandTheme } from "../../features/account/components/TenantBrandTheme";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../../components/ui/sidebar";
 import { rootRoute } from "./root-layout";
 
@@ -17,6 +18,7 @@ export const protectedLayout = createRoute({
   component: function ProtectedLayout() {
     return (
       <SidebarProvider defaultOpen={true}>
+        <TenantBrandTheme />
         <AppSidebar collapsible="icon" />
         <SidebarInset>
           <header className="flex h-14 items-center gap-2 border-b px-4">

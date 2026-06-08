@@ -12,9 +12,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --font-body: "Geist Variable", "Mona Sans Variable", sans-serif;
+  --font-heading: "Merriweather Variable", serif;
+}
+
 body {
   @apply m-0 antialiased;
-  font-family: "Geist Variable", "Mona Sans Variable", sans-serif;
+  font-family: var(--font-body);
   font-weight: 400;
 }
 
@@ -23,7 +28,7 @@ h2,
 h3,
 .font-title,
 .font-header {
-  font-family: "Merriweather Variable", serif;
+  font-family: var(--font-heading);
 }
 
 code {

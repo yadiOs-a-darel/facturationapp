@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { authRouter } from './modules/auth/auth.routes';
 import { tenantRouter } from './modules/tenants/tenants.routes';
+import { usersRouter } from './modules/users/users.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { productsRouter } from './modules/products/products.routes';
 import { invoicesRouter } from './modules/invoices/invoices.routes';
@@ -59,6 +60,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/tenants', tenantRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/invoices', invoicesRouter);

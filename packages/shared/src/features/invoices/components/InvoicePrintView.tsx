@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { Badge } from "../../../components/ui/badge";
 import { formatCurrency } from "../../../lib/format";
 import { cn } from "../../../lib/utils";
+import { resolveUploadUrl } from "../../../lib/uploads";
 import type { Invoice } from "../types";
 
 export interface InvoiceDetail extends Invoice {
@@ -21,6 +22,8 @@ export interface InvoiceDetail extends Invoice {
     phone?: string | null;
     email?: string | null;
     taxNumber?: string | null;
+    logo?: string | null;
+    fontFamily?: string | null;
   };
 }
 
@@ -67,6 +70,7 @@ export const InvoicePrintView = forwardRef<HTMLDivElement, InvoicePrintViewProps
     const company = invoice.tenant;
     const customer = invoice.customer;
     const remaining = Math.max(0, Number(invoice.totalTTC) - Number(invoice.paidAmount));
+    const logoUrl = resolveUploadUrl(company?.logo, { absolute: true });
 
     return (
       <div
@@ -78,6 +82,13 @@ export const InvoicePrintView = forwardRef<HTMLDivElement, InvoicePrintViewProps
       >
         <div className="invoice-doc-header flex flex-col gap-6 sm:flex-row sm:justify-between border-b pb-6 mb-6">
           <div>
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt={company?.name ? `Logo ${company.name}` : "Logo entreprise"}
+                className="mb-4 h-16 max-w-[180px] object-contain"
+              />
+            )}
             <h2 className="text-xl font-bold text-foreground">
               {company?.legalName || company?.name || "Entreprise"}
             </h2>

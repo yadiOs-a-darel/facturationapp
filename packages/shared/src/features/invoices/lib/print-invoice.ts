@@ -1,4 +1,6 @@
 import { formatCurrency } from "../../../lib/format";
+import { getBrandFontCss, resolveBrandFontKey } from "../../../lib/brand-fonts";
+import { resolveUploadUrl } from "../../../lib/uploads";
 
 export interface PrintInvoiceLine {
   description: string;
@@ -35,6 +37,8 @@ export interface PrintInvoiceData {
     phone?: string | null;
     email?: string | null;
     taxNumber?: string | null;
+    logo?: string | null;
+    fontFamily?: string | null;
   };
   customer: {
     denomination: string;
@@ -68,7 +72,14 @@ function statusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
+function resolveLogoForPrint(logo?: string | null): string | undefined {
+  return resolveUploadUrl(logo, { absolute: true });
+}
+
 export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
+  const font = getBrandFontCss(resolveBrandFontKey(data.company.fontFamily));
+  const logoSrc = resolveLogoForPrint(data.company.logo);
+
   const rows = data.items
     .map(
       (item) => `
@@ -90,8 +101,9 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
   <title>Facture ${data.number}</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #111; margin: 0; padding: 32px; font-size: 13px; }
-    h1 { margin: 0 0 4px; font-size: 22px; }
+    body { font-family: ${font.body}; color: #111; margin: 0; padding: 32px; font-size: 13px; }
+    h1 { margin: 0 0 4px; font-size: 22px; font-family: ${font.heading}; }
+    .company-logo { max-height: 64px; max-width: 180px; object-fit: contain; margin-bottom: 12px; display: block; }
     .muted { color: #666; }
     .header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
     .box { border: 1px solid #ddd; border-radius: 8px; padding: 16px; flex: 1; }
@@ -113,6 +125,7 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
 <body>
   <div class="header">
     <div>
+      ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="company-logo" />` : ""}
       <h1>${data.company.legalName || data.company.name}</h1>
       <p class="muted">${data.company.name !== data.company.legalName ? data.company.name : ""}</p>
       ${data.company.address ? `<p>${data.company.address}${data.company.city ? `, ${data.company.city}` : ""}</p>` : ""}
@@ -227,6 +240,8 @@ export function invoiceDetailToPrintData(
       phone?: string | null;
       email?: string | null;
       taxNumber?: string | null;
+      logo?: string | null;
+      fontFamily?: string | null;
     };
     items?: Array<{
       description: string;
@@ -265,6 +280,8 @@ export function invoiceDetailToPrintData(
       phone: invoice.tenant?.phone,
       email: invoice.tenant?.email,
       taxNumber: invoice.tenant?.taxNumber,
+      logo: invoice.tenant?.logo,
+      fontFamily: invoice.tenant?.fontFamily,
     },
     customer: {
       denomination: invoice.customer?.denomination ?? "—",

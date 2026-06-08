@@ -74,6 +74,8 @@ export interface InvoiceDetail extends Invoice {
     phone?: string | null;
     email?: string | null;
     taxNumber?: string | null;
+    logo?: string | null;
+    fontFamily?: string | null;
   };
 }
 
