@@ -1,3 +1,19 @@
+/** Taux TVA : 0 % est valide. `fallback` si valeur absente ou invalide. */
+export function coerceTaxRate(value: unknown, fallback = 19): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, n));
+}
+
+/** Parse saisie utilisateur TVA (0 % autorisé). */
+export function parseTaxRateInput(value: string): number {
+  if (value.trim() === "") return 0;
+  const n = parseFloat(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
 /**
  * Format a number as currency (DZD - Algerian Dinar)
  */

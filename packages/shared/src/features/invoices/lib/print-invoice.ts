@@ -1,6 +1,11 @@
 import { formatCurrency } from "../../../lib/format";
 import { getBrandFontCss, resolveBrandFontKey } from "../../../lib/brand-fonts";
 import { resolveUploadUrl } from "../../../lib/uploads";
+import {
+  getDocumentTypeLabel,
+  getDocumentTypeTitle,
+  getInvoiceStatusLabel,
+} from "./invoice-document";
 
 export interface PrintInvoiceLine {
   description: string;
@@ -60,31 +65,42 @@ function formatDateFr(value: string | null | undefined): string {
   });
 }
 
-function statusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    DRAFT: "Brouillon",
-    SENT: "Envoyée",
-    PARTIAL: "Partiellement payée",
-    PAID: "Payée",
-    OVERDUE: "En retard",
-    CANCELLED: "Annulée",
-  };
-  return labels[status] ?? status;
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function resolveLogoForPrint(logo?: string | null): string | undefined {
   return resolveUploadUrl(logo, { absolute: true });
 }
 
+/** Ouvre la page d'impression dédiée (recommandé). */
+export function openInvoicePrintPage(
+  invoiceId: string,
+  options?: { autoPrint?: boolean },
+): void {
+  const auto = options?.autoPrint !== false ? "?auto=1" : "";
+  const url = `/invoices/${invoiceId}/print${auto}`;
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win) {
+    window.location.href = url;
+  }
+}
+
 export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
   const font = getBrandFontCss(resolveBrandFontKey(data.company.fontFamily));
   const logoSrc = resolveLogoForPrint(data.company.logo);
+  const docTitle = getDocumentTypeTitle(data.type);
+  const docLabel = getDocumentTypeLabel(data.type);
 
   const rows = data.items
     .map(
       (item) => `
       <tr>
-        <td>${item.description}</td>
+        <td>${escapeHtml(item.description)}</td>
         <td class="num">${item.quantity}</td>
         <td class="num">${formatCurrency(item.unitPrice)}</td>
         <td class="num">${item.discountRate ?? 0}%</td>
@@ -98,7 +114,7 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Facture ${data.number}</title>
+  <title>${escapeHtml(docLabel)} ${escapeHtml(data.number)}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: ${font.body}; color: #111; margin: 0; padding: 32px; font-size: 13px; }
@@ -118,26 +134,28 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
     .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #f0f0f0; font-size: 11px; font-weight: 600; }
     .badge.paid { background: #dcfce7; color: #166534; }
     .badge.cancelled { background: #fee2e2; color: #991b1b; }
-    .footer { margin-top: 32px; font-size: 12px; color: #666; }
-    @media print { body { padding: 16px; } }
+    .footer { margin-top: 32px; font-size: 12px; color: #666; white-space: pre-wrap; }
+    @media print {
+      body { padding: 12mm; }
+      @page { margin: 12mm; size: A4; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="company-logo" />` : ""}
-      <h1>${data.company.legalName || data.company.name}</h1>
-      <p class="muted">${data.company.name !== data.company.legalName ? data.company.name : ""}</p>
-      ${data.company.address ? `<p>${data.company.address}${data.company.city ? `, ${data.company.city}` : ""}</p>` : ""}
-      ${data.company.phone ? `<p>Tél : ${data.company.phone}</p>` : ""}
-      ${data.company.email ? `<p>${data.company.email}</p>` : ""}
-      ${data.company.taxNumber ? `<p>NIF : ${data.company.taxNumber}</p>` : ""}
+      ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="company-logo" onload="window.__logoReady=true" />` : ""}
+      <h1>${escapeHtml(data.company.legalName || data.company.name)}</h1>
+      <p class="muted">${data.company.name !== data.company.legalName ? escapeHtml(data.company.name) : ""}</p>
+      ${data.company.address ? `<p>${escapeHtml(data.company.address)}${data.company.city ? `, ${escapeHtml(data.company.city)}` : ""}</p>` : ""}
+      ${data.company.phone ? `<p>Tél : ${escapeHtml(data.company.phone)}</p>` : ""}
+      ${data.company.email ? `<p>${escapeHtml(data.company.email)}</p>` : ""}
+      ${data.company.taxNumber ? `<p>NIF : ${escapeHtml(data.company.taxNumber)}</p>` : ""}
     </div>
     <div style="text-align:right">
-      <h1 style="font-size:28px">FACTURE</h1>
-      <p><strong>${data.number}</strong></p>
-      <p class="muted">${data.type}</p>
-      <span class="badge ${data.status === "PAID" ? "paid" : ""} ${data.status === "CANCELLED" ? "cancelled" : ""}">${statusLabel(data.status)}</span>
+      <h1 style="font-size:22px;letter-spacing:0.06em">${docTitle}</h1>
+      <p><strong>${escapeHtml(data.number)}</strong></p>
+      <span class="badge ${data.status === "PAID" ? "paid" : ""} ${data.status === "CANCELLED" ? "cancelled" : ""}">${getInvoiceStatusLabel(data.status)}</span>
       ${data.isBackdated ? '<p class="muted" style="margin-top:8px">Document antidaté</p>' : ""}
     </div>
   </div>
@@ -145,18 +163,18 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
   <div class="header">
     <div class="box">
       <strong>Client</strong>
-      <p style="margin:8px 0 4px;font-size:15px">${data.customer.denomination}</p>
-      ${data.customer.address ? `<p>${data.customer.address}${data.customer.city ? `, ${data.customer.city}` : ""}</p>` : ""}
-      ${data.customer.phone ? `<p>Tél : ${data.customer.phone}</p>` : ""}
-      ${data.customer.email ? `<p>${data.customer.email}</p>` : ""}
-      ${data.customer.taxNumber ? `<p>NIF : ${data.customer.taxNumber}</p>` : ""}
+      <p style="margin:8px 0 4px;font-size:15px">${escapeHtml(data.customer.denomination)}</p>
+      ${data.customer.address ? `<p>${escapeHtml(data.customer.address)}${data.customer.city ? `, ${escapeHtml(data.customer.city)}` : ""}</p>` : ""}
+      ${data.customer.phone ? `<p>Tél : ${escapeHtml(data.customer.phone)}</p>` : ""}
+      ${data.customer.email ? `<p>${escapeHtml(data.customer.email)}</p>` : ""}
+      ${data.customer.taxNumber ? `<p>NIF : ${escapeHtml(data.customer.taxNumber)}</p>` : ""}
     </div>
     <div class="box">
       <div class="meta">
         <span>Date d'émission</span><strong>${formatDateFr(data.issueDate)}</strong>
         <span>Date d'échéance</span><strong>${formatDateFr(data.dueDate)}</strong>
-        <span>Mode de paiement</span><strong>${data.paymentMethodLabel || data.paymentMethod || "—"}</strong>
-        <span>Réf. paiement</span><strong>${data.paymentRef || "—"}</strong>
+        <span>Mode de paiement</span><strong>${escapeHtml(data.paymentMethodLabel || data.paymentMethod || "—")}</strong>
+        <span>Réf. paiement</span><strong>${escapeHtml(data.paymentRef || "—")}</strong>
       </div>
     </div>
   </div>
@@ -166,7 +184,7 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
       <tr>
         <th>Description</th>
         <th class="num">Qté</th>
-        <th class="num">P.U.</th>
+        <th class="num">P.U. HT</th>
         <th class="num">Remise</th>
         <th class="num">TVA</th>
         <th class="num">Total TTC</th>
@@ -184,30 +202,52 @@ export function buildInvoicePrintHtml(data: PrintInvoiceData): string {
     <div><span>Reste à payer</span><strong>${formatCurrency(Math.max(0, data.totalTTC - data.paidAmount))}</strong></div>
   </div>
 
-  ${data.notes ? `<div class="footer"><strong>Notes</strong><p>${data.notes}</p></div>` : ""}
-  ${data.terms ? `<div class="footer"><strong>Conditions</strong><p>${data.terms}</p></div>` : ""}
+  ${data.notes ? `<div class="footer"><strong>Notes</strong><p>${escapeHtml(data.notes)}</p></div>` : ""}
+  ${data.terms ? `<div class="footer"><strong>Conditions</strong><p>${escapeHtml(data.terms)}</p></div>` : ""}
+  <script>
+    function doPrint() {
+      window.print();
+      window.onafterprint = function() { window.close(); };
+    }
+    if (document.querySelector('.company-logo')) {
+      var img = document.querySelector('.company-logo');
+      if (img.complete) doPrint();
+      else { img.onload = doPrint; img.onerror = doPrint; }
+    } else {
+      doPrint();
+    }
+  </script>
 </body>
 </html>`;
 }
 
+/** Impression via fenêtre HTML (secours si la page dédiée est bloquée). */
 export function printInvoice(data: PrintInvoiceData): void {
   const html = buildInvoicePrintHtml(data);
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
-  if (!win) return;
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  win.onload = () => {
-    win.print();
-  };
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+  if (!doc) {
+    const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    return;
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  iframe.contentWindow?.focus();
 }
 
-export function downloadInvoicePdf(data: PrintInvoiceData): void {
-  printInvoice(data);
+export function downloadInvoicePdf(invoiceId: string): void {
+  openInvoicePrintPage(invoiceId, { autoPrint: true });
 }
 
 export function invoiceDetailToPrintData(
   invoice: {
+    id?: string;
     number: string;
     type: string;
     status: string;
@@ -284,7 +324,8 @@ export function invoiceDetailToPrintData(
       fontFamily: invoice.tenant?.fontFamily,
     },
     customer: {
-      denomination: invoice.customer?.denomination ?? "—",
+      denomination:
+        invoice.customer?.denomination ?? invoice.customerName?.trim() ?? "Sans client",
       address: invoice.customer?.address,
       city: invoice.customer?.city,
       phone: invoice.customer?.phone,

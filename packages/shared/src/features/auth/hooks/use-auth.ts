@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { QueryKeys } from "../../../lib/query";
-import { login, logout, getSession, registerTenant } from "../api/client";
+import {
+  login,
+  logout,
+  getSession,
+  registerTenant,
+  forgotPassword,
+  resetPassword,
+  validateResetToken,
+} from "../api/client";
+import { isAuthTokenValid } from "../../../lib/auth-session";
 import type { LoginPayload, RegisterTenantPayload } from "../types";
 
 const AUTH_ERROR_MESSAGES = {
@@ -25,6 +34,7 @@ function getErrorMessage(error: unknown): string {
 export function useLogin() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { redirect } = useSearch({ strict: false }) as { redirect?: string };
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => login(payload),
@@ -34,10 +44,16 @@ export function useLogin() {
       toast.success("Connexion réussie", {
         description: `Bienvenue, ${data.user.firstName} ${data.user.lastName}`,
       });
-      navigate({ to: "/" });
+      const safeRedirect =
+        redirect && redirect.startsWith("/") && !redirect.startsWith("/auth")
+          ? redirect
+          : "/";
+      navigate({ to: safeRedirect });
     },
-    onError: (error) => {
-      const message = getErrorMessage(error);
+    onError: (error: unknown) => {
+      const apiError = (error as { response?: { data?: { error?: string }; status?: number } })
+        ?.response?.data?.error;
+      const message = apiError || getErrorMessage(error);
       toast.error("Échec de la connexion", { description: message });
     },
   });
@@ -85,18 +101,61 @@ export function useSignOut() {
 }
 
 export function useSession() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem("gestfacturation_token") : null;
-  
+  const hasToken = typeof window !== "undefined" && isAuthTokenValid();
+
   return useQuery({
     queryKey: QueryKeys.session,
     queryFn: async () => {
       const result = await getSession();
-      if (result.error) throw result.error;
+      if (result.error || !result.data?.user) {
+        throw result.error ?? new Error("Session invalide");
+      }
       return result.data;
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
-    enabled: !!token,
+    enabled: hasToken,
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: forgotPassword,
+    onError: (error: unknown) => {
+      const apiError = (
+        error as { response?: { data?: { error?: string } } }
+      )?.response?.data?.error;
+      toast.error("Impossible d'envoyer l'email", {
+        description: apiError || getErrorMessage(error),
+      });
+    },
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: resetPassword,
+    onSuccess: () => {
+      toast.success("Mot de passe mis à jour");
+    },
+    onError: (error: unknown) => {
+      const apiError = (
+        error as { response?: { data?: { error?: string } } }
+      )?.response?.data?.error;
+      toast.error("Échec de la réinitialisation", {
+        description: apiError || getErrorMessage(error),
+      });
+    },
+  });
+}
+
+export function useValidateResetToken(token: string | undefined) {
+  return useQuery({
+    queryKey: ["auth", "reset-token", token],
+    queryFn: () => validateResetToken(token!),
+    enabled: Boolean(token && token.length >= 32),
+    retry: false,
+    staleTime: 60_000,
   });
 }
 

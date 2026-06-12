@@ -65,6 +65,7 @@ export async function createPaymentHandler(req: AuthenticatedRequest, res: Respo
     await tx.insert(schema.payments).values({
       id: paymentId,
       invoiceId,
+      createdById: req.user?.userId ?? null,
       amount: String(amount.toFixed(2)),
       method: method.code,
       reference: reference ?? null,

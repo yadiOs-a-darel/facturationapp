@@ -3,6 +3,7 @@ import type {
   StockMovementsResponse,
   StockAlertsResponse,
   StockMovementsParams,
+  StockAlertsParams,
   StockAdjustmentPayload,
   CurrentStockResponse,
 } from '../types';
@@ -12,8 +13,8 @@ export async function fetchStockMovements(params: StockMovementsParams = {}): Pr
   return data;
 }
 
-export async function fetchStockAlerts(): Promise<StockAlertsResponse> {
-  const { data } = await apiClient.get<StockAlertsResponse>('/stock/alerts');
+export async function fetchStockAlerts(params: StockAlertsParams = {}): Promise<StockAlertsResponse> {
+  const { data } = await apiClient.get<StockAlertsResponse>('/stock/alerts', { params });
   return data;
 }
 

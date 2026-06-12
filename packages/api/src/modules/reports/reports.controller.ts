@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, ne, sql } from 'drizzle-orm';
 
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
@@ -98,4 +98,172 @@ export async function dashboardReport(req: AuthenticatedRequest, res: Response) 
       })),
     },
   });
+}
+
+export async function salesReport(req: AuthenticatedRequest, res: Response) {
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) return res.status(401).json({ error: 'Non authentifié' });
+
+  const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), 0, 1);
+  const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+
+  const rows = await db
+    .select({
+      id: schema.invoices.id,
+      number: schema.invoices.number,
+      type: schema.invoices.type,
+      status: schema.invoices.status,
+      issueDate: schema.invoices.issueDate,
+      totalTTC: schema.invoices.totalTTC,
+      paidAmount: schema.invoices.paidAmount,
+      customerName: schema.customers.denomination,
+    })
+    .from(schema.invoices)
+    .leftJoin(schema.customers, eq(schema.invoices.customerId, schema.customers.id))
+    .where(
+      and(
+        eq(schema.invoices.tenantId, tenantId),
+        eq(schema.invoices.type, 'INVOICE'),
+        ne(schema.invoices.status, 'CANCELLED'),
+        gte(schema.invoices.issueDate, from),
+        lte(schema.invoices.issueDate, to),
+      ),
+    )
+    .orderBy(desc(schema.invoices.issueDate));
+
+  const totalSales = rows.reduce((s, r) => s + Number(r.totalTTC), 0);
+  const totalPaid = rows.reduce((s, r) => s + Number(r.paidAmount), 0);
+
+  return res.json({
+    data: rows.map((r) => ({
+      ...r,
+      totalTTC: Number(r.totalTTC),
+      paidAmount: Number(r.paidAmount),
+    })),
+    meta: { totalSales, totalPaid, count: rows.length, from, to },
+  });
+}
+
+export async function vatReport(req: AuthenticatedRequest, res: Response) {
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) return res.status(401).json({ error: 'Non authentifié' });
+
+  const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), 0, 1);
+  const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+
+  const invoices = await db
+    .select({
+      subtotalHT: schema.invoices.subtotalHT,
+      taxAmount: schema.invoices.taxAmount,
+      totalTTC: schema.invoices.totalTTC,
+      number: schema.invoices.number,
+      issueDate: schema.invoices.issueDate,
+    })
+    .from(schema.invoices)
+    .where(
+      and(
+        eq(schema.invoices.tenantId, tenantId),
+        eq(schema.invoices.type, 'INVOICE'),
+        ne(schema.invoices.status, 'CANCELLED'),
+        ne(schema.invoices.status, 'DRAFT'),
+        gte(schema.invoices.issueDate, from),
+        lte(schema.invoices.issueDate, to),
+      ),
+    );
+
+  const totalHT = invoices.reduce((s, i) => s + Number(i.subtotalHT), 0);
+  const totalVAT = invoices.reduce((s, i) => s + Number(i.taxAmount), 0);
+  const totalTTC = invoices.reduce((s, i) => s + Number(i.totalTTC), 0);
+
+  return res.json({
+    data: invoices.map((i) => ({
+      number: i.number,
+      issueDate: i.issueDate,
+      subtotalHT: Number(i.subtotalHT),
+      taxAmount: Number(i.taxAmount),
+      totalTTC: Number(i.totalTTC),
+    })),
+    meta: { totalHT, totalVAT, totalTTC, from, to },
+  });
+}
+
+export async function receivablesReport(req: AuthenticatedRequest, res: Response) {
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) return res.status(401).json({ error: 'Non authentifié' });
+
+  const rows = await db
+    .select({
+      id: schema.invoices.id,
+      number: schema.invoices.number,
+      status: schema.invoices.status,
+      dueDate: schema.invoices.dueDate,
+      totalTTC: schema.invoices.totalTTC,
+      paidAmount: schema.invoices.paidAmount,
+      customerName: schema.customers.denomination,
+    })
+    .from(schema.invoices)
+    .leftJoin(schema.customers, eq(schema.invoices.customerId, schema.customers.id))
+    .where(
+      and(
+        eq(schema.invoices.tenantId, tenantId),
+        eq(schema.invoices.type, 'INVOICE'),
+        ne(schema.invoices.status, 'CANCELLED'),
+        ne(schema.invoices.status, 'DRAFT'),
+        ne(schema.invoices.status, 'PAID'),
+      ),
+    )
+    .orderBy(schema.invoices.dueDate);
+
+  const data = rows.map((r) => {
+    const remaining = Number(r.totalTTC) - Number(r.paidAmount);
+    return {
+      ...r,
+      totalTTC: Number(r.totalTTC),
+      paidAmount: Number(r.paidAmount),
+      remaining,
+    };
+  });
+
+  const totalDue = data.reduce((s, r) => s + r.remaining, 0);
+  return res.json({ data, meta: { totalDue, count: data.length } });
+}
+
+export async function exportSalesCsv(req: AuthenticatedRequest, res: Response) {
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) return res.status(401).json({ error: 'Non authentifié' });
+
+  const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), 0, 1);
+  const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+
+  const rows = await db
+    .select({
+      number: schema.invoices.number,
+      issueDate: schema.invoices.issueDate,
+      status: schema.invoices.status,
+      totalTTC: schema.invoices.totalTTC,
+      paidAmount: schema.invoices.paidAmount,
+      customerName: schema.customers.denomination,
+    })
+    .from(schema.invoices)
+    .leftJoin(schema.customers, eq(schema.invoices.customerId, schema.customers.id))
+    .where(
+      and(
+        eq(schema.invoices.tenantId, tenantId),
+        eq(schema.invoices.type, 'INVOICE'),
+        gte(schema.invoices.issueDate, from),
+        lte(schema.invoices.issueDate, to),
+      ),
+    );
+
+  const header = 'Numéro;Date;Client;Statut;Total TTC;Payé\n';
+  const lines = rows
+    .map(
+      (r) =>
+        `${r.number};${new Date(r.issueDate).toISOString().slice(0, 10)};${r.customerName ?? ''};${r.status};${r.totalTTC};${r.paidAmount}`,
+    )
+    .join('\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="ventes.csv"');
+  return res.send(`\uFEFF${header}${lines}`);
 }

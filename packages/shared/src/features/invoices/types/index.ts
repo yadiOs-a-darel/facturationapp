@@ -6,6 +6,7 @@ export interface Invoice {
   number: string;
   type: InvoiceType;
   customerId?: string | null;
+  customerName?: string | null;
   issueDate: string;
   dueDate?: string | null;
   status: InvoiceStatus;
@@ -49,11 +50,16 @@ export interface InvoiceItem {
 
 export type InvoiceUpsertPayload = Partial<Invoice> & {
   customerId?: string;
+  customerName?: string | null;
   items?: InvoiceItem[];
   markAsPaid?: boolean;
+  sendImmediately?: boolean;
   initialPaymentAmount?: number;
   paymentRef?: string | null;
   isBackdated?: boolean;
+  internalNotes?: string | null;
+  deliveryDate?: string | null;
+  sourceInvoiceId?: string | null;
 };
 
 export interface InvoiceDetail extends Invoice {
@@ -93,6 +99,7 @@ export interface InvoicesListParams {
   from?: string;
   to?: string;
   type?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }

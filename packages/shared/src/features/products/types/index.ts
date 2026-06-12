@@ -36,6 +36,7 @@ export interface ProductsListParams {
   search?: string;
   categoryId?: string;
   lowStock?: boolean;
+  stockStatus?: 'low' | 'out' | 'ok';
   page?: number;
   limit?: number;
 }

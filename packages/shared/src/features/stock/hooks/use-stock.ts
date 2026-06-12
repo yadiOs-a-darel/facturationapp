@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { stockKeys } from "../../../lib/query";
+import { notificationsKeys, stockKeys } from "../../../lib/query";
 import {
   fetchStockMovements,
   fetchStockAlerts,
   adjustStock,
   getCurrentStock,
 } from "../api/client";
-import type { StockMovementsParams, StockAdjustmentPayload } from "../types";
+import type { StockMovementsParams, StockAlertsParams, StockAdjustmentPayload } from "../types";
 
 export function useStockMovements(params?: StockMovementsParams) {
   return useQuery({
@@ -16,10 +16,10 @@ export function useStockMovements(params?: StockMovementsParams) {
   });
 }
 
-export function useStockAlerts() {
+export function useStockAlerts(params?: StockAlertsParams) {
   return useQuery({
-    queryKey: stockKeys.alerts,
-    queryFn: () => fetchStockAlerts(),
+    queryKey: [...stockKeys.alerts, params],
+    queryFn: () => fetchStockAlerts(params),
     staleTime: 60 * 1000,
   });
 }
@@ -31,6 +31,7 @@ export function useAdjustStock() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: stockKeys.all });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
       toast.success("Stock ajusté avec succès");
     },
     onError: (error) => {

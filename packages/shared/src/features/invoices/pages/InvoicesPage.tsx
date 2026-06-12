@@ -8,9 +8,13 @@ import {
   useUpdateInvoice,
   useCancelInvoice,
   useRecordPayment,
+  useSendInvoice,
+  useConvertToInvoice,
+  useCreateCreditNote,
+  useSendInvoiceEmail,
 } from "../hooks/use-invoices";
 import { InvoicePrintView } from "../components/InvoicePrintView";
-import { printInvoice, downloadInvoicePdf, invoiceDetailToPrintData } from "../lib/print-invoice";
+import { openInvoicePrintPage, downloadInvoicePdf } from "../lib/print-invoice";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { useCustomers } from "../../customers/hooks/use-customers";
 import { useProducts } from "../../products/hooks/use-products";
@@ -19,7 +23,7 @@ import { useI18n } from "../../../lib/i18n";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
-import type { InvoiceType, InvoiceUpsertPayload } from "../types";
+import type { Invoice, InvoiceType, InvoiceUpsertPayload } from "../types";
 import type { PaymentMethod } from "../../payment-methods/types";
 import { Card, CardContent } from "../../../components/ui/card";
 import {
@@ -60,7 +64,10 @@ import {
 import type { InvoiceStatus } from "../types";
 import { fetchInvoice } from "../api/client";
 import { usePageTitle } from "../../../hooks/use-page-title";
-import { formatCurrency } from "../../../lib/format";
+import { useListPagination } from "../../../hooks/use-list-pagination";
+import { ListPagination } from "../../../components/ui/list-pagination";
+import { SELECT_LIST_LIMIT } from "../../../lib/pagination";
+import { coerceTaxRate, formatCurrency, parseTaxRateInput } from "../../../lib/format";
 import {
   computeFormTotalTTC,
   getRemainingAmount,
@@ -85,9 +92,19 @@ function formatDate(date: string): string {
 
 export function InvoicesPage() {
   usePageTitle("Factures");
-  const { data: invoices, isLoading } = useInvoices();
-  const { data: customers } = useCustomers();
-  const { data: products } = useProducts();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const { page, setPage, pageSize } = useListPagination([search, statusFilter, typeFilter]);
+  const { data: invoices, isLoading } = useInvoices({
+    page,
+    limit: pageSize,
+    search: search || undefined,
+    status: statusFilter || undefined,
+    type: typeFilter || undefined,
+  });
+  const { data: customers } = useCustomers({ limit: SELECT_LIST_LIMIT });
+  const { data: products } = useProducts({ limit: SELECT_LIST_LIMIT });
   const { data: paymentMethods } = usePaymentMethods();
   const customersList = customers?.data ?? [];
   const productsList = products?.data ?? [];
@@ -95,10 +112,11 @@ export function InvoicesPage() {
   const createInvoice = useCreateInvoice();
   const deleteInvoice = useDeleteInvoice();
   const cancelInvoice = useCancelInvoice();
+  const sendInvoiceMutation = useSendInvoice();
+  const convertMutation = useConvertToInvoice();
+  const creditNoteMutation = useCreateCreditNote();
+  const sendEmailMutation = useSendInvoiceEmail();
   const { t } = useI18n();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const updateInvoice = useUpdateInvoice(editingInvoiceId ?? "");
@@ -125,6 +143,7 @@ export function InvoicesPage() {
 
   const emptyForm = () => ({
     customerId: "",
+    customerName: "",
     type: "INVOICE" as InvoiceType,
     issueDate: new Date().toISOString().split("T")[0],
     dueDate: "",
@@ -172,16 +191,8 @@ export function InvoicesPage() {
     setDialogOpen(true);
   };
 
-  const filtered = invoices?.data.filter((inv) => {
-    const matchesSearch =
-      !search ||
-      inv.number.toLowerCase().includes(search.toLowerCase()) ||
-      getCustomerName(inv.customerId).toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      !statusFilter || getInvoiceDisplayStatus(inv) === statusFilter;
-    const matchesType = !typeFilter || inv.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
-  }) ?? [];
+  const invoiceRows = invoices?.data ?? [];
+  const listMeta = invoices?.meta;
 
   const formTotalTTC = computeFormTotalTTC(
     form.items.filter((item) => item.description.trim().length > 0),
@@ -202,28 +213,33 @@ export function InvoicesPage() {
     dueDate: form.dueDate || null,
   });
 
-  const buildPayload = (): InvoiceUpsertPayload => ({
+  const buildPayload = (sendImmediately = false): InvoiceUpsertPayload => ({
     customerId: form.customerId || undefined,
+    customerName:
+      !form.customerId && form.customerName.trim() ? form.customerName.trim() : null,
     type: form.type,
     issueDate: form.issueDate,
     dueDate: form.dueDate || null,
     paymentMethod: effectivePaymentAmount > 0 ? form.paymentMethod || null : null,
     paymentRef: effectivePaymentAmount > 0 ? form.paymentRef.trim() || null : null,
     initialPaymentAmount: editingInvoiceId ? undefined : effectivePaymentAmount,
+    sendImmediately: !editingInvoiceId && (sendImmediately || effectivePaymentAmount > 0),
     isBackdated: form.isBackdated,
     notes: form.notes.trim() || null,
     terms: form.terms.trim() || null,
-    items: form.items.map((item) => ({
-      productId: item.productId || undefined,
-      description: item.description.trim(),
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      discountRate: item.discountRate,
-      taxRate: item.taxRate,
-    })),
+    items: form.items
+      .filter((item) => item.description.trim().length > 0)
+      .map((item) => ({
+        productId: item.productId || undefined,
+        description: item.description.trim(),
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountRate: item.discountRate,
+        taxRate: item.taxRate,
+      })),
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = (sendImmediately = false) => {
     const validItems = form.items.filter((item) => item.description.trim().length > 0);
     if (validItems.length === 0) {
       toast.error(t("invoices.validation.itemsRequired"));
@@ -244,7 +260,7 @@ export function InvoicesPage() {
       return;
     }
 
-    const payload = buildPayload();
+    const payload = buildPayload(sendImmediately);
 
     if (editingInvoiceId) {
       updateInvoice.mutate(payload, {
@@ -264,11 +280,13 @@ export function InvoicesPage() {
       },
     });
   };
-  const getCustomerName = (customerId?: string | null) => {
-    if (!customerId) return "Sans client";
-    const customer = customersList.find((c) => c.id === customerId);
-    if (customer?.code === "WALKIN") return "Sans client";
-    return customer?.denomination || "Sans client";
+  const getCustomerName = (inv: { customerId?: string | null; customerName?: string | null }) => {
+    if (inv.customerId) {
+      const customer = customersList.find((c) => c.id === inv.customerId);
+      if (customer) return customer.denomination;
+    }
+    if (inv.customerName?.trim()) return inv.customerName.trim();
+    return "Sans client";
   };
 
   const getInvoiceDisplayStatus = (inv: {
@@ -278,6 +296,7 @@ export function InvoicesPage() {
     dueDate?: string | null;
   }) =>
     resolveInvoiceStatus({
+      baseStatus: inv.status,
       paidAmount: Number(inv.paidAmount),
       totalTTC: Number(inv.totalTTC),
       dueDate: inv.dueDate,
@@ -337,13 +356,13 @@ export function InvoicesPage() {
         productId: productId || undefined,
         description: product?.name ?? current.description,
         unitPrice: product ? Number(product.sellingPrice) : current.unitPrice,
-        taxRate: product ? Number(product.taxRate) || 19 : current.taxRate,
+        taxRate: product ? coerceTaxRate(product.taxRate) : current.taxRate,
       };
       return { ...prev, items };
     });
   };
 
-  type InvoicesRow = (typeof filtered)[0];
+  type InvoicesRow = Invoice;
   const columns: Column<InvoicesRow>[] = [
     {
       key: "number",
@@ -360,8 +379,8 @@ export function InvoicesPage() {
       key: "customer",
       label: "Client",
       sortable: true,
-      render: (_: unknown, row: (typeof filtered)[0]) => (
-        <span className="text-sm">{getCustomerName(row.customerId)}</span>
+      render: (_: unknown, row: InvoicesRow) => (
+        <span className="text-sm">{getCustomerName(row)}</span>
       ),
     },
     {
@@ -455,14 +474,12 @@ export function InvoicesPage() {
     setViewDialogOpen(true);
   };
 
-  const handlePrintInvoice = (invoice: NonNullable<typeof invoiceData>) => {
-    const printData = invoiceDetailToPrintData(invoice, getPaymentMethodLabel(invoice.paymentMethod ?? ""));
-    printInvoice(printData);
+  const handlePrintInvoice = (invoiceId: string) => {
+    openInvoicePrintPage(invoiceId, { autoPrint: true });
   };
 
-  const handleDownloadInvoice = (invoice: NonNullable<typeof invoiceData>) => {
-    const printData = invoiceDetailToPrintData(invoice, getPaymentMethodLabel(invoice.paymentMethod ?? ""));
-    downloadInvoicePdf(printData);
+  const handleDownloadInvoice = (invoiceId: string) => {
+    downloadInvoicePdf(invoiceId);
   };
 
   const handleEditInvoice = async (id: string) => {
@@ -477,6 +494,12 @@ export function InvoicesPage() {
       }
       setForm({
         customerId: inv.customerId && inv.customerId !== "" ? inv.customerId : "",
+        customerName:
+          !inv.customerId && inv.customerName
+            ? inv.customerName
+            : !inv.customerId && inv.customer?.denomination
+              ? inv.customer.denomination
+              : "",
         type: inv.type,
         issueDate: inv.issueDate.split("T")[0],
         dueDate: inv.dueDate ? inv.dueDate.split("T")[0] : "",
@@ -515,7 +538,7 @@ export function InvoicesPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("invoices.title")}
-        description={`${filtered.length} facture${filtered.length > 1 ? "s" : ""}`}
+        description={`${listMeta?.total ?? 0} facture${(listMeta?.total ?? 0) > 1 ? "s" : ""}`}
         action={
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
@@ -594,9 +617,10 @@ export function InvoicesPage() {
         </CardContent>
 
         <DataTable
-          data={filtered}
+          data={invoiceRows}
           columns={columns}
           isLoading={isLoading}
+          sortable={false}
           emptyState={
             <EmptyState
               icon={FileText}
@@ -616,6 +640,11 @@ export function InvoicesPage() {
                   icon: <Eye className="h-4 w-4" />,
                   onClick: () => handleViewInvoice(row.id),
                 },
+                {
+                  label: "Imprimer",
+                  icon: <Printer className="h-4 w-4" />,
+                  onClick: () => handlePrintInvoice(row.id),
+                },
                 ...(isInvoiceEditable(row.status)
                   ? [
                       {
@@ -634,6 +663,35 @@ export function InvoicesPage() {
                       },
                     ]
                   : []),
+                ...(row.status === "DRAFT"
+                  ? [
+                      {
+                        label: "Envoyer",
+                        icon: <FileText className="h-4 w-4" />,
+                        onClick: () => sendInvoiceMutation.mutate(row.id),
+                      },
+                    ]
+                  : []),
+                ...(["QUOTE", "PROFORMA"].includes(row.type)
+                  ? [
+                      {
+                        label: "Convertir en facture",
+                        icon: <FileText className="h-4 w-4" />,
+                        onClick: () => convertMutation.mutate(row.id),
+                      },
+                    ]
+                  : []),
+                ...(row.type === "INVOICE" &&
+                row.status !== "CANCELLED" &&
+                row.status !== "DRAFT"
+                  ? [
+                      {
+                        label: "Créer un avoir",
+                        icon: <FileText className="h-4 w-4" />,
+                        onClick: () => creditNoteMutation.mutate(row.id),
+                      },
+                    ]
+                  : []),
                 ...(row.status !== "PAID" && row.status !== "PARTIAL"
                   ? [
                       {
@@ -648,6 +706,14 @@ export function InvoicesPage() {
             />
           )}
         />
+        {listMeta && (
+          <ListPagination
+            page={listMeta.page}
+            totalPages={listMeta.totalPages}
+            total={listMeta.total}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
 
       {/* Create/Edit Invoice Dialog */}
@@ -666,7 +732,7 @@ export function InvoicesPage() {
           </DialogHeader>
           <div className="invoice-form space-y-6 p-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium">
                   {t("invoices.customer")}{" "}
                   <span className="text-muted-foreground font-normal">(facultatif)</span>
@@ -674,15 +740,34 @@ export function InvoicesPage() {
                 <select
                   className={invoiceSelectClass}
                   value={form.customerId}
-                  onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      customerId: e.target.value,
+                      customerName: e.target.value ? "" : form.customerName,
+                    })
+                  }
+                  disabled={!!form.customerName.trim()}
                 >
-                  <option value="">{t("invoices.noCustomer")}</option>
+                  <option value="">{t("invoices.selectRegisteredCustomer")}</option>
                   {customersList.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.denomination}
                     </option>
                   ))}
                 </select>
+                <Input
+                  placeholder={t("invoices.customerNamePlaceholder")}
+                  value={form.customerName}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      customerName: e.target.value,
+                      customerId: "",
+                    })
+                  }
+                  disabled={!!form.customerId}
+                />
               </div>
 
               <div className="space-y-2">
@@ -996,7 +1081,7 @@ export function InvoicesPage() {
                         step="0.01"
                         value={item.taxRate}
                         onChange={(e) =>
-                          updateItem(index, "taxRate", parseFloat(e.target.value) || 19)
+                          updateItem(index, "taxRate", parseTaxRateInput(e.target.value))
                         }
                       />
                     </div>
@@ -1012,19 +1097,28 @@ export function InvoicesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               {t("common.cancel")}
             </Button>
+            {!editingInvoiceId && (
+              <Button
+                variant="secondary"
+                onClick={() => handleSubmit(false)}
+                disabled={createInvoice.isPending || form.items.length === 0}
+              >
+                Enregistrer brouillon
+              </Button>
+            )}
             <Button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit(true)}
               disabled={
                 (editingInvoiceId ? updateInvoice.isPending : createInvoice.isPending) ||
                 form.items.length === 0
               }
               className="w-full md:w-auto"
             >
-              {editingInvoiceId ? t("common.update") : t("common.create")}
+              {editingInvoiceId ? t("common.update") : "Créer et envoyer"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1128,10 +1222,43 @@ export function InvoicesPage() {
                   </div>
                 )}
               <DialogFooter className="px-6 pb-6 print:hidden flex-wrap gap-2">
-                <Button variant="outline" onClick={() => handlePrintInvoice(invoiceData)}>
+                <Button variant="outline" onClick={() => handlePrintInvoice(invoiceData.id)}>
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimer
                 </Button>
+                <Button variant="outline" onClick={() => handleDownloadInvoice(invoiceData.id)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                {invoiceData.customer?.email && (
+                  <Button
+                    variant="outline"
+                    disabled={sendEmailMutation.isPending}
+                    onClick={() => sendEmailMutation.mutate(invoiceData.id)}
+                  >
+                    Envoyer par email
+                  </Button>
+                )}
+                {invoiceData.status === "DRAFT" && (
+                  <Button onClick={() => sendInvoiceMutation.mutate(invoiceData.id)}>
+                    Envoyer
+                  </Button>
+                )}
+                {["QUOTE", "PROFORMA"].includes(invoiceData.type) && (
+                  <Button onClick={() => convertMutation.mutate(invoiceData.id)}>
+                    Convertir en facture
+                  </Button>
+                )}
+                {invoiceData.type === "INVOICE" &&
+                  invoiceData.status !== "CANCELLED" &&
+                  invoiceData.status !== "DRAFT" && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => creditNoteMutation.mutate(invoiceData.id)}
+                    >
+                      Créer un avoir
+                    </Button>
+                  )}
                 {isInvoiceEditable(invoiceData.status) && (
                   <Button onClick={() => handleEditInvoice(invoiceData.id)}>
                     <Edit className="h-4 w-4 mr-2" />

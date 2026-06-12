@@ -90,7 +90,10 @@ export const stockKeys = {
 export const reportsKeys = {
   all: ['reports'] as const,
   dashboard: ['reports', 'dashboard'] as const,
-  list: (params?: Record<string, unknown>) => [...reportsKeys.all, 'list', params] as const,
+  list: (params?: Record<string, unknown>) => ['reports', 'list', params] as const,
+  sales: (from: string, to: string) => ['reports', 'sales', from, to] as const,
+  vat: (from: string, to: string) => ['reports', 'vat', from, to] as const,
+  receivables: ['reports', 'receivables'] as const,
 };
 
 export const paymentMethodsKeys = {
@@ -103,4 +106,32 @@ export const attachmentsKeys = {
   all: ['attachments'] as const,
   list: (params?: Record<string, unknown>) => [...attachmentsKeys.all, 'list', params] as const,
   detail: (id: string) => [...attachmentsKeys.all, 'detail', id] as const,
+};
+
+export const suppliersKeys = {
+  all: ['suppliers'] as const,
+  list: <T>(params?: T) => [...suppliersKeys.all, 'list', params] as const,
+};
+export const expensesKeys = {
+  all: ['expenses'] as const,
+  list: <T>(params?: T) => [...expensesKeys.all, 'list', params] as const,
+};
+export const purchaseOrdersKeys = {
+  all: ['purchaseOrders'] as const,
+  list: <T>(params?: T) => [...purchaseOrdersKeys.all, 'list', params] as const,
+};
+export const teamKeys = { all: ['team'] as const };
+export const numberingKeys = { all: ['numbering'] as const };
+export const categoriesKeys = { all: ['categories'] as const };
+
+export const cashierJournalKeys = {
+  all: ['cashier-journal'] as const,
+  daily: (date: string) => ['cashier-journal', date] as const,
+};
+
+export const notificationsKeys = {
+  all: ['notifications'] as const,
+  list: ['notifications', 'list'] as const,
+  unreadCount: ['notifications', 'unread-count'] as const,
+  recipients: ['notifications', 'recipients'] as const,
 };

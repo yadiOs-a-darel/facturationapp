@@ -1,37 +1,69 @@
 import type { Response } from 'express';
 import { z } from 'zod';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, lte, desc, like, or, inArray, lt, gt, isNull, not, notInArray, sql } from 'drizzle-orm';
+import { buildPaginationMeta, listPaginationSchema } from '../../lib/pagination';
 import { randomUUID } from 'crypto';
 
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
+import { generateDocumentNumber } from '../../lib/numbering';
+import { logAudit } from '../../lib/audit';
 import {
   computeTotals,
   insertInvoiceItems,
   restoreStockForItems,
   EDITABLE_INVOICE_STATUSES,
   resolveInvoiceStatus,
+  computeDueDate,
   type InvoiceItemInput,
 } from './invoices.helpers';
 
-const listQuerySchema = z.object({
+const listQuerySchema = listPaginationSchema.extend({
   status: z.string().optional(),
   customerId: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
   type: z.string().optional(),
-  page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  search: z.string().optional(),
 });
 
-const invoiceItemSchema = z.object({
-  productId: z.string().optional(),
-  description: z.string().min(1),
-  quantity: z.number().positive(),
-  unitPrice: z.number().nonnegative(),
-  discountRate: z.number().min(0).max(100).optional().default(0),
-  taxRate: z.number().min(0).max(100).optional().default(19),
-});
+function applyInvoiceStatusFilter(status: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (status === 'DRAFT' || status === 'CANCELLED') {
+    return eq(schema.invoices.status, status);
+  }
+  if (status === 'PAID') {
+    return and(
+      not(eq(schema.invoices.status, 'DRAFT')),
+      not(eq(schema.invoices.status, 'CANCELLED')),
+      sql`CAST(${schema.invoices.paidAmount} AS DECIMAL(12,2)) >= CAST(${schema.invoices.totalTTC} AS DECIMAL(12,2))`,
+    );
+  }
+  if (status === 'PARTIAL') {
+    return and(
+      gt(schema.invoices.paidAmount, 0),
+      sql`CAST(${schema.invoices.paidAmount} AS DECIMAL(12,2)) < CAST(${schema.invoices.totalTTC} AS DECIMAL(12,2))`,
+    );
+  }
+  if (status === 'OVERDUE') {
+    return and(
+      notInArray(schema.invoices.status, ['DRAFT', 'CANCELLED']),
+      lt(schema.invoices.dueDate, today),
+      sql`CAST(${schema.invoices.paidAmount} AS DECIMAL(12,2)) < CAST(${schema.invoices.totalTTC} AS DECIMAL(12,2))`,
+    );
+  }
+  if (status === 'SENT') {
+    return and(
+      not(eq(schema.invoices.status, 'DRAFT')),
+      not(eq(schema.invoices.status, 'CANCELLED')),
+      eq(schema.invoices.paidAmount, 0),
+      or(isNull(schema.invoices.dueDate), gte(schema.invoices.dueDate, today)),
+    );
+  }
+  return eq(schema.invoices.status, status);
+}
 
 const optionalDateString = z
   .union([z.string(), z.null(), z.undefined()])
@@ -40,8 +72,27 @@ const optionalDateString = z
     return value;
   });
 
+const optionalId = z
+  .union([z.string(), z.literal(''), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value == null || value === '') return undefined;
+    const trimmed = String(value).trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  });
+
+const invoiceItemSchema = z.object({
+  productId: optionalId,
+  description: z.string().min(1),
+  quantity: z.number().positive(),
+  unitPrice: z.number().nonnegative(),
+  discountRate: z.number().min(0).max(100).optional().default(0),
+  taxRate: z.number().min(0).max(100).optional().default(19),
+});
+
 const invoicePayloadSchema = z.object({
-  customerId: z.string().optional(),
+  customerId: optionalId,
+  customerName: z.string().max(255).optional().nullable(),
   type: z
     .enum(['INVOICE', 'PROFORMA', 'QUOTE', 'CREDIT_NOTE', 'DELIVERY_NOTE'])
     .optional()
@@ -55,8 +106,12 @@ const invoicePayloadSchema = z.object({
   paymentMethod: z.string().optional().nullable(),
   paymentRef: z.string().optional().nullable(),
   markAsPaid: z.boolean().optional().default(false),
+  sendImmediately: z.boolean().optional().default(false),
   initialPaymentAmount: z.number().nonnegative().optional().default(0),
   isBackdated: z.boolean().optional().default(false),
+  internalNotes: z.string().optional().nullable(),
+  deliveryDate: optionalDateString,
+  sourceInvoiceId: z.string().optional().nullable(),
   items: z.array(invoiceItemSchema).min(1, 'Au moins une ligne est requise'),
 });
 
@@ -64,6 +119,9 @@ function enrichInvoiceRow<T extends { paidAmount: unknown; totalTTC: unknown; du
   row: T,
   now = new Date(),
 ): T & { status: string } {
+  if (row.status === 'DRAFT' || row.status === 'CANCELLED') {
+    return { ...row, status: row.status };
+  }
   return {
     ...row,
     status: resolveInvoiceStatus({
@@ -86,55 +144,6 @@ function resolveInitialPaymentAmount(
   return Math.round(amount * 100) / 100;
 }
 
-async function generateInvoiceNumber(tenantId: string) {
-  const documentType = 'INVOICE';
-  const year = new Date().getFullYear();
-
-  let currentNumber = 1;
-  let prefix = `FAC-${year}-`;
-  const padding = 4;
-
-  await db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(schema.numberingConfig)
-      .where(
-        and(
-          eq(schema.numberingConfig.tenantId, tenantId),
-          eq(schema.numberingConfig.documentType, documentType),
-        ),
-      )
-      .limit(1);
-
-    const now = new Date();
-
-    if (existing.length === 0) {
-      await tx.insert(schema.numberingConfig).values({
-        id: randomUUID(),
-        tenantId,
-        documentType,
-        prefix,
-        currentNumber: 1,
-        padding,
-        createdAt: now,
-        updatedAt: now,
-      });
-      currentNumber = 1;
-    } else {
-      const cfg = existing[0];
-      prefix = cfg.prefix;
-      currentNumber = (cfg.currentNumber ?? 0) + 1;
-      await tx
-        .update(schema.numberingConfig)
-        .set({ currentNumber })
-        .where(eq(schema.numberingConfig.id, cfg.id));
-    }
-  });
-
-  const seq = currentNumber.toString().padStart(padding, '0');
-  return `${prefix}${seq}`;
-}
-
 function isDateInPast(dateStr: string | null): boolean {
   if (!dateStr) return false;
   const issue = new Date(dateStr);
@@ -153,14 +162,29 @@ export async function listInvoices(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ error: 'Paramètres invalides' });
   }
 
-  const { status, customerId, from, to, type, page, limit } = parse.data;
+  const { status, customerId, from, to, type, search, page, limit } = parse.data;
 
   const conditions = [eq(schema.invoices.tenantId, tenantId)];
-  if (status) conditions.push(eq(schema.invoices.status, status));
+  if (status) conditions.push(applyInvoiceStatusFilter(status));
   if (type) conditions.push(eq(schema.invoices.type, type));
   if (customerId) conditions.push(eq(schema.invoices.customerId, customerId));
   if (from) conditions.push(gte(schema.invoices.issueDate, new Date(from)));
   if (to) conditions.push(lte(schema.invoices.issueDate, new Date(to)));
+  if (search) {
+    const pattern = `%${search}%`;
+    const matchingCustomers = await db
+      .select({ id: schema.customers.id })
+      .from(schema.customers)
+      .where(and(eq(schema.customers.tenantId, tenantId), like(schema.customers.denomination, pattern)));
+    const customerIds = matchingCustomers.map((c) => c.id);
+    conditions.push(
+      or(
+        like(schema.invoices.number, pattern),
+        like(schema.invoices.customerName, pattern),
+        customerIds.length > 0 ? inArray(schema.invoices.customerId, customerIds) : sql`false`,
+      )!,
+    );
+  }
 
   const offset = (page - 1) * limit;
 
@@ -169,7 +193,7 @@ export async function listInvoices(req: AuthenticatedRequest, res: Response) {
       .select()
       .from(schema.invoices)
       .where(and(...conditions))
-      .orderBy(schema.invoices.issueDate)
+      .orderBy(desc(schema.invoices.createdAt))
       .limit(limit)
       .offset(offset),
     db
@@ -179,12 +203,11 @@ export async function listInvoices(req: AuthenticatedRequest, res: Response) {
   ]);
 
   const total = totalRows.length;
-  const totalPages = Math.ceil(total / limit);
 
   const now = new Date();
   return res.json({
     data: rows.map((row) => enrichInvoiceRow(row, now)),
-    meta: { total, page, perPage: limit, totalPages },
+    meta: buildPaginationMeta(total, page, limit),
   });
 }
 
@@ -230,7 +253,19 @@ export async function getInvoiceById(req: AuthenticatedRequest, res: Response) {
     .where(eq(schema.payments.invoiceId, id));
 
   const enriched = enrichInvoiceRow(invoice);
-  return res.json({ ...enriched, customer: customer ?? null, tenant, items, payments });
+  const customerForResponse =
+    customer ??
+    (invoice.customerName
+      ? {
+          denomination: invoice.customerName,
+          address: null,
+          city: null,
+          phone: null,
+          email: null,
+          taxNumber: null,
+        }
+      : null);
+  return res.json({ ...enriched, customer: customerForResponse, tenant, items, payments });
 }
 
 export async function createInvoiceHandler(req: AuthenticatedRequest, res: Response) {
@@ -245,7 +280,7 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
 
   const payload = parse.data;
 
-  const number = await generateInvoiceNumber(tenantId);
+  const number = await generateDocumentNumber(tenantId, payload.type);
   const { subtotalHT, taxAmount, totalTTC } = computeTotals(payload.items as InvoiceItemInput[]);
   const paidAmount = resolveInitialPaymentAmount(payload, totalTTC);
 
@@ -256,24 +291,50 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
     return res.status(400).json({ error: 'Le montant versé ne peut pas dépasser le total TTC' });
   }
 
+  let customerDiscount = 0;
+  let paymentTermDays = 30;
+  if (payload.customerId) {
+    const [customer] = await db
+      .select()
+      .from(schema.customers)
+      .where(
+        and(eq(schema.customers.id, payload.customerId), eq(schema.customers.tenantId, tenantId)),
+      )
+      .limit(1);
+    if (customer) {
+      customerDiscount = Number(customer.discountRate) || 0;
+      paymentTermDays = customer.paymentTermDays ?? 30;
+    }
+  }
+
   try {
     let createdInvoice: Record<string, unknown>;
     const now = new Date();
     const issueDate = payload.issueDate ? new Date(payload.issueDate) : now;
-    const dueDate = payload.dueDate ? new Date(payload.dueDate) : null;
+    const dueDate = payload.dueDate
+      ? new Date(payload.dueDate)
+      : payload.type === 'INVOICE'
+        ? computeDueDate(issueDate, paymentTermDays)
+        : null;
     const backdated =
       payload.isBackdated || (payload.issueDate ? isDateInPast(payload.issueDate) : false);
 
-    const status = resolveInvoiceStatus({ paidAmount, totalTTC, dueDate, now });
+    const asDraft = !payload.sendImmediately && !payload.markAsPaid && paidAmount <= 0;
+    const status = asDraft
+      ? 'DRAFT'
+      : resolveInvoiceStatus({ paidAmount, totalTTC, dueDate, now });
 
     await db.transaction(async (tx) => {
       const customerIdToUse = payload.customerId?.trim() || null;
+      const customerNameToUse =
+        customerIdToUse ? null : payload.customerName?.trim() || null;
       const invoiceId = randomUUID();
 
       await tx.insert(schema.invoices).values({
         id: invoiceId,
         tenantId,
         customerId: customerIdToUse,
+        customerName: customerNameToUse,
         createdById: userId ?? null,
         number,
         type: payload.type,
@@ -282,15 +343,19 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         status,
         subtotalHT: String(subtotalHT.toFixed(2)),
         discountAmount: String((payload.discountAmount ?? 0).toFixed(2)),
-        discountRate: payload.discountRate ?? 0,
+        discountRate: payload.discountRate ?? customerDiscount,
         taxAmount: String(taxAmount.toFixed(2)),
         totalTTC: String(totalTTC.toFixed(2)),
         paidAmount: String(paidAmount.toFixed(2)),
         notes: payload.notes ?? null,
+        internalNotes: payload.internalNotes ?? null,
+        deliveryDate: payload.deliveryDate ? new Date(payload.deliveryDate) : null,
         terms: payload.terms ?? null,
         paymentMethod: paidAmount > 0 ? payload.paymentMethod ?? null : null,
         paymentDate: paidAmount > 0 ? now : null,
         paymentRef: paidAmount > 0 ? payload.paymentRef ?? null : null,
+        sourceInvoiceId: payload.sourceInvoiceId ?? null,
+        sentAt: asDraft ? null : now,
         isBackdated: backdated,
         createdAt: now,
         updatedAt: now,
@@ -300,15 +365,18 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
         tenantId,
         invoiceId,
         invoiceNumber: number,
+        documentType: payload.type,
         items: payload.items as InvoiceItemInput[],
         userId,
         now,
+        applyStock: !asDraft,
       });
 
       if (paidAmount > 0 && payload.paymentMethod) {
         await tx.insert(schema.payments).values({
           id: randomUUID(),
           invoiceId,
+          createdById: userId ?? null,
           amount: String(paidAmount.toFixed(2)),
           method: payload.paymentMethod,
           reference: payload.paymentRef ?? null,
@@ -332,9 +400,19 @@ export async function createInvoiceHandler(req: AuthenticatedRequest, res: Respo
       createdInvoice = { ...invoiceRow, items };
     });
 
+    await logAudit({
+      tenantId,
+      userId,
+      action: 'CREATE',
+      resource: 'Invoice',
+      resourceId: (createdInvoice as { id: string }).id,
+    });
+
     return res.status(201).json(createdInvoice);
-  } catch {
-    return res.status(400).json({ error: 'Impossible de créer la facture' });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Impossible de créer la facture';
+    return res.status(400).json({ error: message });
   }
 }
 
@@ -402,9 +480,11 @@ export async function updateInvoiceHandler(req: AuthenticatedRequest, res: Respo
           tenantId,
           invoiceId: id,
           invoiceNumber: invoice.number,
+          documentType: payload.type ?? invoice.type,
           items: normalizedItems,
           userId,
           now,
+          applyStock: invoice.status !== 'DRAFT',
         });
       }
 
@@ -420,6 +500,14 @@ export async function updateInvoiceHandler(req: AuthenticatedRequest, res: Respo
             payload.customerId !== undefined
               ? payload.customerId?.trim() || null
               : invoice.customerId,
+          customerName:
+            payload.customerId !== undefined
+              ? payload.customerId?.trim()
+                ? null
+                : payload.customerName?.trim() || null
+              : payload.customerName !== undefined
+                ? payload.customerName?.trim() || null
+                : invoice.customerName,
           type: payload.type ?? invoice.type,
           issueDate,
           dueDate:

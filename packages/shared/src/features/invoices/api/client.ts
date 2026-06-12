@@ -41,3 +41,23 @@ export async function updateInvoice(id: string, payload: InvoiceUpsertPayload): 
 export async function deleteInvoice(id: string): Promise<void> {
   await apiClient.delete(`/invoices/${id}`);
 }
+
+export async function sendInvoice(id: string): Promise<Invoice> {
+  const { data } = await apiClient.post<Invoice>(`/invoices/${id}/send`);
+  return data;
+}
+
+export async function convertToInvoice(id: string): Promise<Invoice> {
+  const { data } = await apiClient.post<Invoice>(`/invoices/${id}/convert`);
+  return data;
+}
+
+export async function createCreditNote(id: string): Promise<Invoice> {
+  const { data } = await apiClient.post<Invoice>(`/invoices/${id}/credit-note`);
+  return data;
+}
+
+export async function sendInvoiceEmail(id: string): Promise<{ success: boolean; sentTo: string }> {
+  const { data } = await apiClient.post(`/invoices/${id}/send-email`);
+  return data;
+}

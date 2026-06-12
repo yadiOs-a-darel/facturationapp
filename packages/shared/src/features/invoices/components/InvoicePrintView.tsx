@@ -4,6 +4,7 @@ import { formatCurrency } from "../../../lib/format";
 import { cn } from "../../../lib/utils";
 import { resolveUploadUrl } from "../../../lib/uploads";
 import type { Invoice } from "../types";
+import { getDocumentTypeTitle, getInvoiceStatusLabel } from "../lib/invoice-document";
 
 export interface InvoiceDetail extends Invoice {
   customer?: {
@@ -39,18 +40,6 @@ function formatDateFr(value: string | null | undefined): string {
     month: "long",
     year: "numeric",
   });
-}
-
-function statusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    DRAFT: "Brouillon",
-    SENT: "Envoyée",
-    PARTIAL: "Partiellement payée",
-    PAID: "Payée",
-    OVERDUE: "En retard",
-    CANCELLED: "Annulée",
-  };
-  return labels[status] ?? status;
 }
 
 function statusBadgeClass(status: string): string {
@@ -112,15 +101,16 @@ export const InvoicePrintView = forwardRef<HTMLDivElement, InvoicePrintViewProps
             )}
           </div>
           <div className="text-left sm:text-right">
-            <p className="invoice-doc-title text-3xl font-bold tracking-tight">FACTURE</p>
+            <p className="invoice-doc-title text-2xl sm:text-3xl font-bold tracking-tight">
+              {getDocumentTypeTitle(invoice.type)}
+            </p>
             <p className="text-lg font-semibold mt-1 text-primary">{invoice.number}</p>
-            <p className="text-sm text-muted-foreground">{invoice.type}</p>
             <div className="mt-3 flex sm:justify-end gap-2 flex-wrap">
               <Badge
                 variant="outline"
                 className={cn("font-medium", statusBadgeClass(invoice.status))}
               >
-                {statusLabel(invoice.status)}
+                {getInvoiceStatusLabel(invoice.status)}
               </Badge>
               {invoice.isBackdated && (
                 <Badge variant="secondary" className="bg-muted/60">
@@ -136,7 +126,9 @@ export const InvoicePrintView = forwardRef<HTMLDivElement, InvoicePrintViewProps
             <p className="text-xs font-semibold uppercase tracking-wider text-primary/80 mb-2">
               Client
             </p>
-            <p className="font-semibold text-base">{customer?.denomination ?? "Sans client"}</p>
+            <p className="font-semibold text-base">
+              {customer?.denomination ?? invoice.customerName?.trim() ?? "Sans client"}
+            </p>
             {customer?.address && (
               <p className="text-sm mt-1 text-foreground/85">
                 {customer.address}

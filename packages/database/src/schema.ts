@@ -35,6 +35,11 @@ export const tenants = mysqlTable('tenants', {
   licenseValidatedAt: datetime('license_validated_at').default(null),
   maxUsers: int('max_users').notNull(),
   maxProducts: int('max_products').notNull(),
+  smtpHost: varchar('smtp_host', { length: 255 }),
+  smtpPort: int('smtp_port'),
+  smtpUser: varchar('smtp_user', { length: 255 }),
+  smtpPass: varchar('smtp_pass', { length: 512 }),
+  smtpFrom: varchar('smtp_from', { length: 255 }),
   createdAt: datetime('created_at').notNull(),
   updatedAt: datetime('updated_at').notNull(),
 });
@@ -53,6 +58,27 @@ export const users = mysqlTable('users', {
   lastLoginAt: datetime('last_login_at').default(null),
   createdAt: datetime('created_at').notNull(),
   updatedAt: datetime('updated_at').notNull(),
+});
+
+export const passwordResetTokens = mysqlTable('password_reset_tokens', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  userId: varchar('user_id', { length: 191 }).notNull(),
+  tokenHash: varchar('token_hash', { length: 191 }).notNull(),
+  expiresAt: datetime('expires_at').notNull(),
+  usedAt: datetime('used_at'),
+  createdAt: datetime('created_at').notNull(),
+});
+
+export const notifications = mysqlTable('notifications', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  tenantId: varchar('tenant_id', { length: 191 }).notNull(),
+  recipientId: varchar('recipient_id', { length: 191 }).notNull(),
+  senderId: varchar('sender_id', { length: 191 }),
+  type: varchar('type', { length: 32 }).notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body').notNull(),
+  readAt: datetime('read_at'),
+  createdAt: datetime('created_at').notNull(),
 });
 
 // ===================== CUSTOMERS & SUPPLIERS =====================
@@ -153,6 +179,7 @@ export const invoices = mysqlTable('invoices', {
   id: varchar('id', { length: 191 }).primaryKey(),
   tenantId: varchar('tenant_id', { length: 191 }).notNull(),
   customerId: varchar('customer_id', { length: 191 }),
+  customerName: varchar('customer_name', { length: 255 }),
   createdById: varchar('created_by_id', { length: 191 }),
   number: varchar('number', { length: 64 }).notNull(),
   type: varchar('type', { length: 32 }).default('INVOICE').notNull(),
@@ -173,6 +200,8 @@ export const invoices = mysqlTable('invoices', {
   internalNotes: text('internal_notes'),
   terms: text('terms'),
   isBackdated: boolean('is_backdated').default(false).notNull(),
+  sourceInvoiceId: varchar('source_invoice_id', { length: 191 }),
+  sentAt: datetime('sent_at'),
   createdAt: datetime('created_at').notNull(),
   updatedAt: datetime('updated_at').notNull(),
 });
@@ -195,6 +224,7 @@ export const invoiceItems = mysqlTable('invoice_items', {
 export const payments = mysqlTable('payments', {
   id: varchar('id', { length: 191 }).primaryKey(),
   invoiceId: varchar('invoice_id', { length: 191 }).notNull(),
+  createdById: varchar('created_by_id', { length: 191 }),
   amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
   method: varchar('method', { length: 64 }).notNull(),
   reference: varchar('reference', { length: 255 }),
@@ -237,6 +267,7 @@ export const purchaseOrderItems = mysqlTable('purchase_order_items', {
 export const expenses = mysqlTable('expenses', {
   id: varchar('id', { length: 191 }).primaryKey(),
   tenantId: varchar('tenant_id', { length: 191 }).notNull(),
+  createdById: varchar('created_by_id', { length: 191 }),
   title: varchar('title', { length: 255 }).notNull(),
   category: varchar('category', { length: 255 }).notNull(),
   amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
@@ -316,5 +347,21 @@ export const productPriceHistory = mysqlTable('product_price_history', {
   newPrice: decimal('new_price', { precision: 10, scale: 2 }).notNull(),
   changedAt: datetime('changed_at').notNull(),
   changedById: varchar('changed_by_id', { length: 191 }),
+});
+
+export const recurringInvoices = mysqlTable('recurring_invoices', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  tenantId: varchar('tenant_id', { length: 191 }).notNull(),
+  customerId: varchar('customer_id', { length: 191 }),
+  label: varchar('label', { length: 255 }).notNull(),
+  frequency: varchar('frequency', { length: 32 }).notNull(),
+  nextRunAt: datetime('next_run_at').notNull(),
+  lastRunAt: datetime('last_run_at'),
+  itemsJson: text('items_json').notNull(),
+  notes: text('notes'),
+  terms: text('terms'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: datetime('created_at').notNull(),
+  updatedAt: datetime('updated_at').notNull(),
 });
 

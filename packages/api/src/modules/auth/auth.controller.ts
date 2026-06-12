@@ -41,7 +41,7 @@ export async function login(req: Request, res: Response) {
     })
     .from(schema.users)
     .innerJoin(schema.tenants, eq(schema.users.tenantId, schema.tenants.id))
-    .where(and(eq(schema.users.email, email), eq(schema.users.isActive, true)))
+    .where(eq(schema.users.email, email))
     .limit(1);
 
   const row = rows[0];
@@ -51,6 +51,10 @@ export async function login(req: Request, res: Response) {
   }
 
   const { user, tenant } = row;
+
+  if (!user.isActive) {
+    return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
@@ -220,6 +224,10 @@ export async function getSession(req: AuthenticatedRequest, res: Response) {
   }
 
   const { user, tenant } = row;
+
+  if (!user.isActive) {
+    return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
+  }
 
   return res.json({
     user: {

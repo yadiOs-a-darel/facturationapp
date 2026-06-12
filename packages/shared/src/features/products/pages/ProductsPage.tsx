@@ -42,18 +42,29 @@ import {
 import { useI18n } from "../../../lib/i18n";
 import type { Product } from "../types";
 import { usePageTitle } from "../../../hooks/use-page-title";
+import { useListPagination } from "../../../hooks/use-list-pagination";
+import { ListPagination } from "../../../components/ui/list-pagination";
 import { formatCurrency } from "../../../lib/format";
 
 export function ProductsPage() {
   usePageTitle("Produits");
-  const { data: products, isLoading } = useProducts();
+  const [search, setSearch] = useState("");
+  const [stockFilter, setStockFilter] = useState<string>("");
+  const { page, setPage, pageSize } = useListPagination([search, stockFilter]);
+  const { data: products, isLoading } = useProducts({
+    page,
+    limit: pageSize,
+    search: search || undefined,
+    stockStatus:
+      stockFilter === "low" || stockFilter === "out" || stockFilter === "ok"
+        ? stockFilter
+        : undefined,
+  });
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct;
   const deleteProduct = useDeleteProduct();
   const { t } = useI18n();
 
-  const [search, setSearch] = useState("");
-  const [stockFilter, setStockFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form, setForm] = useState({
@@ -70,18 +81,8 @@ export function ProductsPage() {
     isActive: true,
   });
 
-  const filtered = products?.data.filter((p) => {
-    const matchesSearch =
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.code.toLowerCase().includes(search.toLowerCase());
-    const matchesStock =
-      stockFilter === "" ||
-      (stockFilter === "low" && p.stockQuantity <= p.stockMin) ||
-      (stockFilter === "out" && p.stockQuantity === 0) ||
-      (stockFilter === "ok" && p.stockQuantity > p.stockMin);
-    return matchesSearch && matchesStock;
-  }) ?? [];
+  const productRows = products?.data ?? [];
+  const listMeta = products?.meta;
 
   const handleSubmit = () => {
     if (editingProduct) {
@@ -146,7 +147,7 @@ export function ProductsPage() {
     return { label: "En stock", variant: "success" };
   };
 
-  const columns: Column<(typeof filtered)[0]>[] = [
+  const columns: Column<Product>[] = [
     {
       key: "code",
       label: t("products.code"),
@@ -197,7 +198,7 @@ export function ProductsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("products.title")}
-        description={`${filtered.length} produit${filtered.length > 1 ? "s" : ""}`}
+        description={`${listMeta?.total ?? 0} produit${(listMeta?.total ?? 0) > 1 ? "s" : ""}`}
         action={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -245,9 +246,10 @@ export function ProductsPage() {
         </CardContent>
 
         <DataTable
-          data={filtered}
+          data={productRows}
           columns={columns}
           isLoading={isLoading}
+          sortable={false}
           emptyState={
             <EmptyState
               icon={Package}
@@ -277,6 +279,14 @@ export function ProductsPage() {
             />
           )}
         />
+        {listMeta && (
+          <ListPagination
+            page={listMeta.page}
+            totalPages={listMeta.totalPages}
+            total={listMeta.total}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -331,8 +341,14 @@ export function ProductsPage() {
                 <label className="text-sm font-medium">{t("products.taxRate")}</label>
                 <Input
                   type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
                   value={form.taxRate}
-                  onChange={(e) => setForm({ ...form, taxRate: +e.target.value })}
+                  onChange={(e) => {
+                    const n = parseFloat(e.target.value);
+                    setForm({ ...form, taxRate: Number.isFinite(n) ? Math.max(0, n) : 0 });
+                  }}
                 />
               </div>
             </div>

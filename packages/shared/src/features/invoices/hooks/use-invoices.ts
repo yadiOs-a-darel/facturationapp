@@ -9,6 +9,10 @@ import {
   deleteInvoice,
   cancelInvoice,
   recordPayment,
+  sendInvoice,
+  convertToInvoice,
+  createCreditNote,
+  sendInvoiceEmail,
 } from "../api/client";
 import type { InvoiceUpsertPayload, InvoicesListParams, RecordPaymentPayload } from "../types";
 
@@ -44,9 +48,11 @@ export function useCreateInvoice() {
       queryClient.invalidateQueries({ queryKey: reportsKeys.dashboard });
       toast.success("Facture créée avec succès");
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      const apiError = (error as { response?: { data?: { error?: string } } })?.response?.data
+        ?.error;
       toast.error("Erreur lors de la création de la facture", {
-        description: error instanceof Error ? error.message : "Une erreur est survenue",
+        description: apiError || (error instanceof Error ? error.message : "Une erreur est survenue"),
       });
     },
   });
@@ -100,6 +106,55 @@ export function useCancelInvoice() {
     onError: (error) => {
       toast.error("Erreur lors de l'annulation", {
         description: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
+    },
+  });
+}
+
+export function useSendInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => sendInvoice(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      toast.success("Document envoyé");
+    },
+    onError: (error) => {
+      toast.error("Erreur", { description: error instanceof Error ? error.message : undefined });
+    },
+  });
+}
+
+export function useConvertToInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => convertToInvoice(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+      toast.success("Facture créée à partir du document");
+    },
+  });
+}
+
+export function useCreateCreditNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => createCreditNote(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.all });
+      toast.success("Avoir créé");
+    },
+  });
+}
+
+export function useSendInvoiceEmail() {
+  return useMutation({
+    mutationFn: (id: string) => sendInvoiceEmail(id),
+    onSuccess: (data) => toast.success(`Email envoyé à ${data.sentTo}`),
+    onError: (error) => {
+      toast.error("Envoi email impossible", {
+        description: error instanceof Error ? error.message : undefined,
       });
     },
   });

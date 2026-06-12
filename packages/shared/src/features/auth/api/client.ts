@@ -40,6 +40,53 @@ export async function logout(): Promise<void> {
   }
 }
 
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  password: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+export async function forgotPassword(
+  payload: ForgotPasswordPayload,
+): Promise<ForgotPasswordResponse> {
+  const { data } = await apiClient.post<ForgotPasswordResponse>(
+    "/auth/forgot-password",
+    payload,
+  );
+  return data;
+}
+
+export async function resetPassword(
+  payload: ResetPasswordPayload,
+): Promise<ResetPasswordResponse> {
+  const { data } = await apiClient.post<ResetPasswordResponse>(
+    "/auth/reset-password",
+    payload,
+  );
+  return data;
+}
+
+export async function validateResetToken(token: string): Promise<{ valid: boolean }> {
+  const { data } = await apiClient.get<{ valid: boolean }>(
+    "/auth/reset-password/validate",
+    { params: { token } },
+  );
+  return data;
+}
+
 export async function getSession(): Promise<AuthResult> {
   const token = localStorage.getItem("gestfacturation_token");
   if (!token) {

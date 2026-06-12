@@ -14,6 +14,17 @@ import { invoicesRouter } from './modules/invoices/invoices.routes';
 import { stockRouter } from './modules/stock/stock.routes';
 import { paymentMethodsRouter } from './modules/payment-methods/paymentMethods.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
+import { categoriesRouter } from './modules/categories/categories.routes';
+import { suppliersRouter } from './modules/suppliers/suppliers.routes';
+import { expensesRouter } from './modules/expenses/expenses.routes';
+import { purchaseOrdersRouter } from './modules/purchase-orders/purchaseOrders.routes';
+import { numberingRouter } from './modules/numbering/numbering.routes';
+import { teamRouter } from './modules/team/team.routes';
+import { auditRouter } from './modules/audit/audit.routes';
+import { recurringRouter } from './modules/recurring/recurring.routes';
+import { paymentsRouter } from './modules/payments/payments.routes';
+import { attachmentsRouter } from './modules/attachments/attachments.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
 
 // Type declaration pour process.pkg (pkg bundler)
 declare global {
@@ -67,6 +78,17 @@ app.use('/api/invoices', invoicesRouter);
 app.use('/api/stock', stockRouter);
 app.use('/api/payment-methods', paymentMethodsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/categories', categoriesRouter);
+app.use('/api/suppliers', suppliersRouter);
+app.use('/api/expenses', expensesRouter);
+app.use('/api/purchase-orders', purchaseOrdersRouter);
+app.use('/api/numbering', numberingRouter);
+app.use('/api/team', teamRouter);
+app.use('/api/audit', auditRouter);
+app.use('/api/recurring-invoices', recurringRouter);
+app.use('/api/payments', paymentsRouter);
+app.use('/api/attachments', attachmentsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 const PORT = process.env.PORT || 4000;
 
