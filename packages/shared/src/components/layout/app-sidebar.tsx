@@ -12,6 +12,9 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth, useSignOut } from "../../features/auth/hooks/use-auth";
+import { useMyTenant } from "../../features/account/hooks/use-tenant";
+import { isTenantAdmin } from "../../lib/roles";
+import { CompanyLogo } from "./company-logo";
 import { ThemeSwitcher } from "../../components/header/ThemeSwitcher";
 import { LanguageSwitcher } from "../../components/header/LanguageSwitcher";
 import {
@@ -59,9 +62,11 @@ export function AppSidebar({
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: tenant } = useMyTenant();
   const signOut = useSignOut();
 
-  const isAdmin = user?.role?.toLowerCase() === "admin";
+  const isAdmin = isTenantAdmin(user?.role);
+  const companyName = tenant?.name ?? "GestFacturation";
 
   return (
     <Sidebar collapsible={collapsible}>
@@ -70,10 +75,8 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/" className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
-                  <span className="text-base font-bold text-primary-foreground">GF</span>
-                </div>
-                <span className="text-lg font-bold">GestFacturation</span>
+                <CompanyLogo logo={tenant?.logo} companyName={companyName} />
+                <span className="text-lg font-bold truncate">{companyName}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -8,6 +8,7 @@ import { CustomersPage } from "../features/customers/pages/CustomersPage";
 import { ProductsPage } from "../features/products/pages/ProductsPage";
 import { InvoicesPage } from "../features/invoices/pages/InvoicesPage";
 import { StockPage } from "../features/stock/pages/StockPage";
+import { AccountSettingsPage } from "../features/account/pages/AccountSettingsPage";
 import { UnavailablePage } from "./pages/UnavailablePage";
 import { protectedLayout } from "./layouts/protected-layout";
 import { rootRoute } from "./layouts/root-layout";
@@ -80,6 +81,12 @@ const stockRoute = createRoute({
   component: StockPage,
 });
 
+const accountSettingsRoute = createRoute({
+  getParentRoute: () => protectedLayout,
+  path: "/account/settings",
+  component: AccountSettingsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   licenseRoute,
   loginRoute,
@@ -90,6 +97,7 @@ const routeTree = rootRoute.addChildren([
     invoicesRoute,
     productsRoute,
     stockRoute,
+    accountSettingsRoute,
   ]),
 ]);
 
