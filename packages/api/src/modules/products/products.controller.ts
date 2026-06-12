@@ -1,18 +1,18 @@
 import type { Response } from 'express';
 import { z } from 'zod';
-import { and, eq, like, lte } from 'drizzle-orm';
+import { and, eq, like, lte, desc, sql } from 'drizzle-orm';
+import { buildPaginationMeta, listPaginationSchema } from '../../lib/pagination';
 import { randomUUID } from 'crypto';
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
 
-const listQuerySchema = z.object({
+const listQuerySchema = listPaginationSchema.extend({
   search: z.string().optional(),
   categoryId: z.string().optional(),
   lowStock: z
     .union([z.string().transform((v) => v === 'true'), z.boolean()])
     .optional(),
-  page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  stockStatus: z.enum(['low', 'out', 'ok']).optional(),
 });
 
 const productPayloadSchema = z.object({
@@ -44,7 +44,7 @@ export async function listProducts(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ error: 'Paramètres invalides' });
   }
 
-  const { search, categoryId, lowStock, page, limit } = parse.data;
+  const { search, categoryId, lowStock, stockStatus, page, limit } = parse.data;
 
   const conditions = [eq(schema.products.tenantId, tenantId)];
   if (categoryId) conditions.push(eq(schema.products.categoryId, categoryId));
@@ -52,8 +52,12 @@ export async function listProducts(req: AuthenticatedRequest, res: Response) {
     const pattern = `%${search}%`;
     conditions.push(like(schema.products.name, pattern));
   }
-  if (lowStock) {
+  if (lowStock || stockStatus === 'low') {
     conditions.push(lte(schema.products.stockQuantity, schema.products.stockMin));
+  } else if (stockStatus === 'out') {
+    conditions.push(eq(schema.products.stockQuantity, 0));
+  } else if (stockStatus === 'ok') {
+    conditions.push(sql`${schema.products.stockQuantity} > ${schema.products.stockMin}`);
   }
 
   const offset = (page - 1) * limit;
@@ -63,7 +67,7 @@ export async function listProducts(req: AuthenticatedRequest, res: Response) {
       .select()
       .from(schema.products)
       .where(and(...conditions))
-      .orderBy(schema.products.createdAt)
+      .orderBy(desc(schema.products.createdAt))
       .limit(limit)
       .offset(offset),
     db
@@ -73,16 +77,10 @@ export async function listProducts(req: AuthenticatedRequest, res: Response) {
   ]);
 
   const total = totalRows.length;
-  const totalPages = Math.ceil(total / limit);
 
   return res.json({
     data: rows,
-    meta: {
-      total,
-      page,
-      perPage: limit,
-      totalPages,
-    },
+    meta: buildPaginationMeta(total, page, limit),
   });
 }
 
@@ -114,6 +112,15 @@ export async function createProductHandler(req: AuthenticatedRequest, res: Respo
   }
 
   const p = parse.data;
+
+  const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, tenantId)).limit(1);
+  const productCount = await db
+    .select()
+    .from(schema.products)
+    .where(eq(schema.products.tenantId, tenantId));
+  if (tenant && productCount.length >= tenant.maxProducts) {
+    return res.status(403).json({ error: 'Limite de produits atteinte pour votre abonnement' });
+  }
 
   const now = new Date();
 
@@ -183,9 +190,24 @@ export async function updateProductHandler(req: AuthenticatedRequest, res: Respo
       (updateData as any)[k] = parsed[k];
     }
   }
+  const oldProduct = existing[0];
+  if (
+    parsed.sellingPrice !== undefined &&
+    String(parsed.sellingPrice) !== String(oldProduct.sellingPrice)
+  ) {
+    await db.insert(schema.productPriceHistory).values({
+      id: randomUUID(),
+      productId: id,
+      oldPrice: String(oldProduct.sellingPrice),
+      newPrice: String(parsed.sellingPrice),
+      changedAt: new Date(),
+      changedById: req.user?.userId ?? null,
+    });
+  }
+
   await db
     .update(schema.products)
-    .set(updateData)
+    .set({ ...updateData, updatedAt: new Date() })
     .where(and(eq(schema.products.id, id), eq(schema.products.tenantId, tenantId)));
 
   const [updated] = await db

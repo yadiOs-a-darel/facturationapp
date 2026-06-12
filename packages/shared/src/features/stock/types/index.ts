@@ -11,8 +11,16 @@ export interface StockMovement {
   createdAt: string;
 }
 
+export interface StockListMeta {
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
 export interface StockMovementsResponse {
   data: StockMovement[];
+  meta: StockListMeta;
 }
 
 export interface StockAlert {
@@ -25,12 +33,22 @@ export interface StockAlert {
 
 export interface StockAlertsResponse {
   data: StockAlert[];
+  meta: StockListMeta;
 }
 
 export interface StockMovementsParams {
   productId?: string;
   from?: string;
   to?: string;
+  type?: MovementType;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface StockAlertsParams {
+  page?: number;
+  limit?: number;
 }
 
 export interface StockAdjustmentPayload {

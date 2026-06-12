@@ -37,18 +37,31 @@ export function computeLineTotals(item: InvoiceItemInput) {
 
 type DbTx = Parameters<Parameters<typeof import('../../lib/db').db.transaction>[0]>[0];
 
+export const STOCK_OUT_TYPES = ['INVOICE', 'DELIVERY_NOTE'] as const;
+export const STOCK_IN_TYPES = ['CREDIT_NOTE'] as const;
+
+export function shouldApplyStock(documentType: string): 'OUT' | 'IN' | null {
+  if (STOCK_OUT_TYPES.includes(documentType as (typeof STOCK_OUT_TYPES)[number])) return 'OUT';
+  if (STOCK_IN_TYPES.includes(documentType as (typeof STOCK_IN_TYPES)[number])) return 'IN';
+  return null;
+}
+
 export async function insertInvoiceItems(
   tx: DbTx,
   params: {
     tenantId: string;
     invoiceId: string;
     invoiceNumber: string;
+    documentType: string;
     items: InvoiceItemInput[];
     userId?: string | null;
     now: Date;
+    applyStock?: boolean;
   },
 ) {
-  const { tenantId, invoiceId, invoiceNumber, items, userId, now } = params;
+  const { tenantId, invoiceId, invoiceNumber, documentType, items, userId, now, applyStock = false } =
+    params;
+  const stockMode = applyStock ? shouldApplyStock(documentType) : null;
 
   for (const [index, item] of items.entries()) {
     const { lineHT, lineTTC } = computeLineTotals(item);
@@ -56,7 +69,7 @@ export async function insertInvoiceItems(
     await tx.insert(schema.invoiceItems).values({
       id: randomUUID(),
       invoiceId,
-      productId: item.productId ?? null,
+      productId: item.productId?.trim() ? item.productId.trim() : null,
       description: item.description,
       quantity: item.quantity,
       unit: 'pcs',
@@ -68,7 +81,7 @@ export async function insertInvoiceItems(
       order: index,
     });
 
-    if (item.productId) {
+    if (item.productId && stockMode === 'OUT') {
       await applyStockOut(tx, {
         tenantId,
         productId: item.productId,
@@ -78,8 +91,61 @@ export async function insertInvoiceItems(
         userId,
         now,
       });
+    } else if (item.productId && stockMode === 'IN') {
+      await applyStockIn(tx, {
+        tenantId,
+        productId: item.productId,
+        quantity: item.quantity,
+        reference: invoiceId,
+        reason: `Avoir ${invoiceNumber}`,
+        userId,
+        now,
+      });
     }
   }
+}
+
+export async function applyStockIn(
+  tx: DbTx,
+  params: {
+    tenantId: string;
+    productId: string;
+    quantity: number;
+    reference: string;
+    reason: string;
+    userId?: string | null;
+    now: Date;
+  },
+) {
+  const { tenantId, productId, quantity, reference, reason, userId, now } = params;
+
+  const [product] = await tx
+    .select()
+    .from(schema.products)
+    .where(and(eq(schema.products.id, productId), eq(schema.products.tenantId, tenantId)))
+    .limit(1);
+
+  if (!product || product.isService) return;
+
+  const currentStock = Number(product.stockQuantity) || 0;
+  const newStock = currentStock + quantity;
+
+  await tx.insert(schema.stockMovements).values({
+    id: randomUUID(),
+    tenantId,
+    productId,
+    type: 'IN',
+    quantity,
+    reason,
+    reference,
+    createdAt: now,
+    createdBy: userId ?? null,
+  });
+
+  await tx
+    .update(schema.products)
+    .set({ stockQuantity: newStock, updatedAt: now })
+    .where(eq(schema.products.id, productId));
 }
 
 export async function applyStockOut(
@@ -194,12 +260,17 @@ export function isPastDue(dueDate: Date | string | null | undefined, now = new D
 }
 
 export function resolveInvoiceStatus(params: {
+  baseStatus?: string;
   paidAmount: number;
   totalTTC: number;
   dueDate?: Date | string | null;
   now?: Date;
 }): string {
-  const { paidAmount, totalTTC, dueDate, now = new Date() } = params;
+  const { baseStatus, paidAmount, totalTTC, dueDate, now = new Date() } = params;
+
+  if (baseStatus === 'DRAFT') return 'DRAFT';
+  if (baseStatus === 'CANCELLED') return 'CANCELLED';
+
   const remaining = Math.max(0, totalTTC - paidAmount);
   const overdue = remaining > EPSILON && isPastDue(dueDate, now);
 
@@ -209,4 +280,10 @@ export function resolveInvoiceStatus(params: {
   if (paidAmount >= totalTTC - EPSILON) return 'PAID';
   if (paidAmount > EPSILON) return overdue ? 'OVERDUE' : 'PARTIAL';
   return overdue ? 'OVERDUE' : 'SENT';
+}
+
+export function computeDueDate(issueDate: Date, paymentTermDays: number): Date {
+  const due = new Date(issueDate);
+  due.setDate(due.getDate() + paymentTermDays);
+  return due;
 }

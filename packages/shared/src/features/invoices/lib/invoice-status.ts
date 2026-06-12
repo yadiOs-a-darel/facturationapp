@@ -14,12 +14,15 @@ export function isPastDue(dueDate: Date | string | null | undefined, now = new D
 
 /** Statut affiché selon montant payé, total et échéance. */
 export function resolveInvoiceStatus(params: {
+  baseStatus?: string;
   paidAmount: number;
   totalTTC: number;
   dueDate?: Date | string | null;
   now?: Date;
 }): InvoiceStatus {
-  const { paidAmount, totalTTC, dueDate, now = new Date() } = params;
+  const { baseStatus, paidAmount, totalTTC, dueDate, now = new Date() } = params;
+  if (baseStatus === 'DRAFT') return 'DRAFT';
+  if (baseStatus === 'CANCELLED') return 'CANCELLED';
   const remaining = Math.max(0, totalTTC - paidAmount);
   const overdue = remaining > EPSILON && isPastDue(dueDate, now);
 

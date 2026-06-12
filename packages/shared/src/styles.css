@@ -379,6 +379,26 @@ button {
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  body {
+    background: white !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print\:hidden,
+  .invoice-print-page .print\:hidden {
+    display: none !important;
+  }
+
+  .invoice-print-page {
+    background: white !important;
+  }
+
   .invoice-document {
     background: white !important;
     color: black !important;
@@ -399,5 +419,15 @@ button {
 
   .invoice-document .invoice-doc-table tbody tr:hover {
     background: transparent !important;
+  }
+
+  .invoice-document .text-primary,
+  .invoice-document .text-success-foreground,
+  .invoice-document .text-warning-foreground {
+    color: #0f172a !important;
+  }
+
+  .invoice-document .text-muted-foreground {
+    color: #475569 !important;
   }
 }

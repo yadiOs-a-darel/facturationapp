@@ -1,15 +1,14 @@
 import type { Response } from 'express';
 import { z } from 'zod';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, like, desc, or } from 'drizzle-orm';
+import { buildPaginationMeta, listPaginationSchema } from '../../lib/pagination';
 import { randomUUID } from 'crypto';
 import { db, schema } from '../../lib/db';
 import type { AuthenticatedRequest } from '../../middleware/auth';
 
-const listQuerySchema = z.object({
+const listQuerySchema = listPaginationSchema.extend({
   search: z.string().optional(),
   type: z.string().optional(),
-  page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
 const customerPayloadSchema = z.object({
@@ -49,7 +48,9 @@ export async function listCustomers(req: AuthenticatedRequest, res: Response) {
   }
   if (search) {
     const pattern = `%${search}%`;
-    conditions.push(like(schema.customers.denomination, pattern));
+    conditions.push(
+      or(like(schema.customers.denomination, pattern), like(schema.customers.code, pattern))!,
+    );
   }
 
   const offset = (page - 1) * limit;
@@ -59,7 +60,7 @@ export async function listCustomers(req: AuthenticatedRequest, res: Response) {
       .select()
       .from(schema.customers)
       .where(and(...conditions))
-      .orderBy(schema.customers.createdAt)
+      .orderBy(desc(schema.customers.createdAt))
       .limit(limit)
       .offset(offset),
     db
@@ -69,16 +70,10 @@ export async function listCustomers(req: AuthenticatedRequest, res: Response) {
   ]);
 
   const total = totalRows.length;
-  const totalPages = Math.ceil(total / limit);
 
   return res.json({
     data: rows,
-    meta: {
-      total,
-      page,
-      perPage: limit,
-      totalPages,
-    },
+    meta: buildPaginationMeta(total, page, limit),
   });
 }
 

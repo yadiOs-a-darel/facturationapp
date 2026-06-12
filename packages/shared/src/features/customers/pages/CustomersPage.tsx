@@ -33,17 +33,25 @@ import { MoreVertical, Search, Plus, Trash2, Edit, Filter, Users } from "lucide-
 import { useI18n } from "../../../lib/i18n";
 import type { Customer } from "../types";
 import { usePageTitle } from "../../../hooks/use-page-title";
+import { useListPagination } from "../../../hooks/use-list-pagination";
+import { ListPagination } from "../../../components/ui/list-pagination";
 
 export function CustomersPage() {
   usePageTitle("Clients");
-  const { data: customers, isLoading } = useCustomers();
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const { page, setPage, pageSize } = useListPagination([search, typeFilter]);
+  const { data: customers, isLoading } = useCustomers({
+    page,
+    limit: pageSize,
+    search: search || undefined,
+    type: typeFilter || undefined,
+  });
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer;
   const deleteCustomer = useDeleteCustomer();
   const { t } = useI18n();
 
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [form, setForm] = useState({
@@ -55,14 +63,8 @@ export function CustomersPage() {
     country: "DZ",
   });
 
-  const filtered = customers?.data.filter((c) => {
-    const matchesSearch =
-      !search ||
-      c.denomination.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase());
-    const matchesType = !typeFilter || c.type === typeFilter;
-    return matchesSearch && matchesType;
-  }) ?? [];
+  const customerRows = customers?.data ?? [];
+  const listMeta = customers?.meta;
 
   const handleSubmit = () => {
     if (editingCustomer) {
@@ -118,7 +120,7 @@ export function CustomersPage() {
     return labels[type] || type;
   };
 
-  const columns: Column<(typeof filtered)[0]>[] = [
+  const columns: Column<Customer>[] = [
     {
       key: "code",
       label: t("customers.code"),
@@ -155,7 +157,7 @@ export function CustomersPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("customers.title")}
-        description={`${filtered.length} client${filtered.length > 1 ? "s" : ""}`}
+        description={`${listMeta?.total ?? 0} client${(listMeta?.total ?? 0) > 1 ? "s" : ""}`}
         action={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -200,9 +202,10 @@ export function CustomersPage() {
         </CardContent>
 
         <DataTable
-          data={filtered}
+          data={customerRows}
           columns={columns}
           isLoading={isLoading}
+          sortable={false}
           emptyState={
             <EmptyState
               icon={Users}
@@ -232,6 +235,14 @@ export function CustomersPage() {
             />
           )}
         />
+        {listMeta && (
+          <ListPagination
+            page={listMeta.page}
+            totalPages={listMeta.totalPages}
+            total={listMeta.total}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>

@@ -1,6 +1,5 @@
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
-  Bell,
   ChevronsUpDown,
   FileText,
   LayoutDashboard,
@@ -10,11 +9,18 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  Truck,
+  Wallet,
+  ClipboardList,
+  BarChart3,
+  ScrollText,
+  Shield,
 } from "lucide-react";
 import { useAuth, useSignOut } from "../../features/auth/hooks/use-auth";
 import { useMyTenant } from "../../features/account/hooks/use-tenant";
 import { isTenantAdmin } from "../../lib/roles";
 import { CompanyLogo } from "./company-logo";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import { ThemeSwitcher } from "../../components/header/ThemeSwitcher";
 import { LanguageSwitcher } from "../../components/header/LanguageSwitcher";
 import {
@@ -43,6 +49,14 @@ const navigationItems = [
   { label: "Produits", path: "/products", icon: Package },
   { label: "Factures", path: "/invoices", icon: FileText },
   { label: "Stock", path: "/stock", icon: ShoppingCart },
+  { label: "Fournisseurs", path: "/suppliers", icon: Truck },
+  { label: "Achats", path: "/purchase-orders", icon: ClipboardList },
+  { label: "Dépenses", path: "/expenses", icon: Wallet },
+  { label: "Rapports", path: "/reports", icon: BarChart3 },
+] as const;
+
+const adminNavigationItems = [
+  { label: "Journal caisse", path: "/cashier-journal", icon: ScrollText },
 ] as const;
 
 function getInitials(name: string): string {
@@ -87,7 +101,7 @@ export function AppSidebar({
         <SidebarGroup className="group-data-[collapsible=icon]:items-center">
           <SidebarGroupContent className="flex flex-col items-center">
             <SidebarMenu className="gap-3 group-data-[collapsible=icon]:items-center">
-              {navigationItems.map((item) => {
+              {[...navigationItems, ...(isAdmin ? adminNavigationItems : [])].map((item) => {
                 const isActive = !!matchRoute({
                   to: item.path,
                   fuzzy: !("exact" in item && item.exact),
@@ -116,12 +130,7 @@ export function AppSidebar({
 
       <SidebarFooter>
       <div className="flex items-center gap-1 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
-              <SidebarMenuButton
-                className="!size-8 !p-0 justify-center text-muted-foreground hover:text-foreground transition-colors"
-                tooltip="Notifications"
-              >
-                <Bell className="!size-4" strokeWidth={1.5} />
-              </SidebarMenuButton>
+              <NotificationsBell />
               <ThemeSwitcher />
             </div>
         <SidebarMenu>
@@ -171,8 +180,11 @@ export function AppSidebar({
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="gap-3 px-3 py-2 transition-colors">
-                      <Settings className="size-4" />
+                    <DropdownMenuItem
+                      className="gap-3 px-3 py-2 transition-colors"
+                      onClick={() => navigate({ to: "/admin" })}
+                    >
+                      <Shield className="size-4" />
                       Administration
                     </DropdownMenuItem>
                   </>

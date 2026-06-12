@@ -27,6 +27,10 @@ import {
 } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
 import { usePageTitle } from "../../../hooks/use-page-title";
+import { useListPagination } from "../../../hooks/use-list-pagination";
+import { ListPagination } from "../../../components/ui/list-pagination";
+import { SELECT_LIST_LIMIT } from "../../../lib/pagination";
+import type { MovementType } from "../types";
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("fr-FR", {
@@ -40,15 +44,25 @@ function formatDate(dateString: string) {
 
 export function StockPage() {
   usePageTitle("Stock");
-  const { data: movements, isLoading: movementsLoading } = useStockMovements();
-  const { data: alerts, isLoading: alertsLoading } = useStockAlerts();
-  const { data: products } = useProducts();
-  const adjustStock = useAdjustStock();
-  const { t } = useI18n();
-
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [tab, setTab] = useState("movements");
+  const { page, setPage, pageSize } = useListPagination([search, typeFilter]);
+  const { page: alertsPage, setPage: setAlertsPage, pageSize: alertsPageSize } = useListPagination([tab]);
+  const { data: movements, isLoading: movementsLoading } = useStockMovements({
+    page,
+    limit: pageSize,
+    search: search || undefined,
+    type: (typeFilter || undefined) as MovementType | undefined,
+  });
+  const { data: alerts, isLoading: alertsLoading } = useStockAlerts({
+    page: alertsPage,
+    limit: alertsPageSize,
+  });
+  const { data: products } = useProducts({ limit: SELECT_LIST_LIMIT });
+  const adjustStock = useAdjustStock();
+  const { t } = useI18n();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     productId: "",
@@ -57,19 +71,10 @@ export function StockPage() {
     reason: "",
   });
 
-  const filteredMovements = movements?.data.filter((m) => {
-    const matchesSearch =
-      !search ||
-      products?.data.some(
-        (p) =>
-          p.id === m.productId &&
-          p.name.toLowerCase().includes(search.toLowerCase())
-      );
-    const matchesType = !typeFilter || m.type === typeFilter;
-    return matchesSearch && matchesType;
-  }) ?? [];
-
-  const filteredAlerts = alerts?.data ?? [];
+  const movementRows = movements?.data ?? [];
+  const movementsMeta = movements?.meta;
+  const alertRows = alerts?.data ?? [];
+  const alertsMeta = alerts?.meta;
 
   const handleSubmit = () => {
     adjustStock.mutate(form as any, {
@@ -112,7 +117,7 @@ export function StockPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("stock.title")}
-        description={`${filteredMovements.length} mouvement${filteredMovements.length > 1 ? "s" : ""}`}
+        description={`${movementsMeta?.total ?? 0} mouvement${(movementsMeta?.total ?? 0) > 1 ? "s" : ""}`}
         action={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -126,14 +131,14 @@ export function StockPage() {
           <TabsTrigger value="movements" className="gap-2">
             {t("stock.movements")}
             <Badge variant="secondary" size="sm">
-              {filteredMovements.length}
+              {movementsMeta?.total ?? 0}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="alerts" className="gap-2">
             {t("stock.alerts")}
-            {filteredAlerts.length > 0 && (
+            {(alertsMeta?.total ?? 0) > 0 && (
               <Badge variant="warning" size="sm">
-                {filteredAlerts.length}
+                {alertsMeta?.total ?? 0}
               </Badge>
             )}
           </TabsTrigger>
@@ -185,7 +190,7 @@ export function StockPage() {
                 <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
                   {t("common.loading")}
                 </div>
-              ) : filteredMovements.length === 0 ? (
+              ) : movementRows.length === 0 ? (
                 <EmptyState
                   icon={Package}
                   title={t("stock.empty") || "Aucun mouvement"}
@@ -193,7 +198,7 @@ export function StockPage() {
                 />
               ) : (
                 <div className="divide-y">
-                  {filteredMovements.map((m) => {
+                  {movementRows.map((m) => {
                     const config = getMovementTypeConfig(m.type);
                     const Icon = config.icon;
                     return (
@@ -251,6 +256,14 @@ export function StockPage() {
                 </div>
               )}
             </div>
+            {movementsMeta && (
+              <ListPagination
+                page={movementsMeta.page}
+                totalPages={movementsMeta.totalPages}
+                total={movementsMeta.total}
+                onPageChange={setPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
@@ -261,7 +274,7 @@ export function StockPage() {
                 <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
                   {t("common.loading")}
                 </div>
-              ) : filteredAlerts.length === 0 ? (
+              ) : alertRows.length === 0 ? (
                 <EmptyState
                   icon={AlertTriangle}
                   title="Aucune alerte de stock"
@@ -269,7 +282,7 @@ export function StockPage() {
                 />
               ) : (
                 <div className="divide-y">
-                  {filteredAlerts.map((alert) => {
+                  {alertRows.map((alert) => {
                     const shortage = Math.max(0, alert.stockMin - alert.stockQuantity);
                     return (
                       <div
@@ -303,6 +316,14 @@ export function StockPage() {
                 </div>
               )}
             </CardContent>
+            {alertsMeta && (
+              <ListPagination
+                page={alertsMeta.page}
+                totalPages={alertsMeta.totalPages}
+                total={alertsMeta.total}
+                onPageChange={setAlertsPage}
+              />
+            )}
           </Card>
         </TabsContent>
       </Tabs>
