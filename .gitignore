@@ -1,3 +1,6 @@
+# Fichiers locaux / assistant (ne pas versionner)
+CLAUDE.md
+
 # Dependencies
 node_modules
 .pnpm-store
